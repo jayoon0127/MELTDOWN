@@ -15,6 +15,17 @@ export function toWorld(x, y) {
   return [(x - 0.5) * WORLD_SIZE, 0, (y - 0.5) * WORLD_SIZE];
 }
 
+export function toNormalized(wx, wz) {
+  return { x: wx / WORLD_SIZE + 0.5, y: wz / WORLD_SIZE + 0.5 };
+}
+
+// Top-row zones (smaller y) open south into the hallway; bottom-row zones
+// open north. Shared by ZoneNode (rendering) and the collision builder so
+// doorway placement never drifts out of sync between the two.
+export function getZoneDoorSide(zone) {
+  return zone.y < 0.5 ? "south" : "north";
+}
+
 // Passed into useMovement as `applyPosition` — writes the local player's
 // normalized position onto their avatar's Three.js group each frame.
 export function applyWorldPosition(object3D, pos) {

@@ -7,7 +7,8 @@ import Chat from "./Chat";
 import VoicePanel from "./VoicePanel";
 import { formatTime } from "../statMeta";
 import { useMovement } from "../useMovement";
-import { applyWorldPosition } from "./three/worldMap";
+import { applyWorldPosition, toWorld, toNormalized } from "./three/worldMap";
+import { buildWallColliders, resolveWallCollision } from "./three/collision";
 
 export default function GameScreen({ room, myId, onWork, onSend, onRestart, voice }) {
   const [currentZoneId, setCurrentZoneId] = useState(null);
@@ -19,11 +20,22 @@ export default function GameScreen({ room, myId, onWork, onSend, onRestart, voic
   const isOver = room.status === "won" || room.status === "lost";
 
   const initialPosRef = useRef({ x: me?.x ?? 0.5, y: me?.y ?? 0.5 });
+
+  const resolveCollision = useMemo(() => {
+    const rects = buildWallColliders(room.zones);
+    return (pos) => {
+      const [wx, , wz] = toWorld(pos.x, pos.y);
+      const { x, z } = resolveWallCollision(wx, wz, rects);
+      return toNormalized(x, z);
+    };
+  }, [room.zones]);
+
   const { avatarElRef, setJoystickVector } = useMovement({
     initialPos: initialPosRef.current,
     zones: room.zones,
     onZoneChange: setCurrentZoneId,
     applyPosition: applyWorldPosition,
+    resolveCollision,
   });
 
   const currentZone = useMemo(

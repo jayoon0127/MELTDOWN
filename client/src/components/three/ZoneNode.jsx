@@ -5,7 +5,7 @@ import RoomShell from "./RoomShell";
 import ContainmentPlaceholder from "./placeholders/ContainmentPlaceholder";
 import SecurityPlaceholder from "./placeholders/SecurityPlaceholder";
 import ControlPlaceholder from "./placeholders/ControlPlaceholder";
-import { toWorld, ROOM_HALF_WIDTH, ROOM_HALF_DEPTH } from "./worldMap";
+import { toWorld, ROOM_HALF_WIDTH, ROOM_HALF_DEPTH, getZoneDoorSide } from "./worldMap";
 
 const ZONE_MODELS = {
   reactor: "/models/zone-reactor.glb",
@@ -30,9 +30,7 @@ export default function ZoneNode({ zone, incidentCount, isDark }) {
 
   const padColor = isDark ? "#1a1010" : incidentCount > 0 ? "#3a3010" : "#16283f";
   const ringColor = isDark ? "#402020" : incidentCount > 0 ? "#ffcf4d" : "#2a4568";
-  // Rooms in the top row (smaller y) open south into the hallway; the
-  // bottom row opens north into it.
-  const doorSide = zone.y < 0.5 ? "south" : "north";
+  const doorSide = getZoneDoorSide(zone);
 
   return (
     <group position={[wx, 0, wz]}>

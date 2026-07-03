@@ -1,30 +1,23 @@
 import { BUILDING_HALF, CORRIDOR_Z_MIN, CORRIDOR_Z_MAX } from "./worldMap";
+import { BUILDING_WALL_HEIGHT, BUILDING_WALL_THICKNESS, getBuildingWallSegments } from "./wallLayout";
 
-const WALL_HEIGHT = 2.6;
-const WALL_THICKNESS = 0.2;
 const WALL_COLOR = "#1c2c42";
-
-function Wall({ length, position, rotationY }) {
-  return (
-    <mesh position={position} rotation={[0, rotationY, 0]}>
-      <boxGeometry args={[length, WALL_HEIGHT, WALL_THICKNESS]} />
-      <meshStandardMaterial color={WALL_COLOR} flatShading />
-    </mesh>
-  );
-}
 
 // Outer perimeter of the plant, plus a lighter floor strip marking the
 // hallway that runs between the two rows of rooms.
 export default function BuildingShell() {
-  const y = WALL_HEIGHT / 2;
+  const y = BUILDING_WALL_HEIGHT / 2;
   const span = BUILDING_HALF * 2;
+  const segments = getBuildingWallSegments(BUILDING_HALF);
 
   return (
     <group>
-      <Wall length={span} position={[0, y, -BUILDING_HALF]} rotationY={0} />
-      <Wall length={span} position={[0, y, BUILDING_HALF]} rotationY={0} />
-      <Wall length={span} position={[-BUILDING_HALF, y, 0]} rotationY={Math.PI / 2} />
-      <Wall length={span} position={[BUILDING_HALF, y, 0]} rotationY={Math.PI / 2} />
+      {segments.map((s, i) => (
+        <mesh key={i} position={[s.cx, y, s.cz]} rotation={[0, s.rotationY, 0]}>
+          <boxGeometry args={[s.length, BUILDING_WALL_HEIGHT, BUILDING_WALL_THICKNESS]} />
+          <meshStandardMaterial color={WALL_COLOR} flatShading />
+        </mesh>
+      ))}
 
       <mesh
         rotation={[-Math.PI / 2, 0, 0]}

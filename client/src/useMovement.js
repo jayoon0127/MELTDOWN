@@ -24,8 +24,10 @@ function clamp(v, lo, hi) {
 // re-renders), and throttles the network-facing position updates +
 // current-zone lookups. applyPosition(el, {x, y}) decides how a normalized
 // 0-1 position maps onto whatever `el` actually is (a DOM node's style, a
-// Three.js Object3D's position, etc).
-export function useMovement({ initialPos, zones, onZoneChange, applyPosition }) {
+// Three.js Object3D's position, etc). resolveCollision(pos) => pos is an
+// optional pass that pushes a candidate position back out of solid
+// geometry (walls); omit it for a scene with nothing to bump into.
+export function useMovement({ initialPos, zones, onZoneChange, applyPosition, resolveCollision }) {
   const posRef = useRef(initialPos);
   const avatarElRef = useRef(null);
   const joystickVecRef = useRef({ x: 0, y: 0 });
@@ -91,7 +93,10 @@ export function useMovement({ initialPos, zones, onZoneChange, applyPosition }) 
 
     function tick(ts) {
       if (lastTsRef.current == null) lastTsRef.current = ts;
-      const dt = Math.min(0.1, (ts - lastTsRef.current) / 1000);
+      // Clamped tight: at SPEED=0.32/sec, 0.05s is ~0.016 normalized units
+      // (0.16 world units) max per frame, comfortably under wall thickness
+      // so a slow frame can't tunnel the player clean through a wall.
+      const dt = Math.min(0.05, (ts - lastTsRef.current) / 1000);
       lastTsRef.current = ts;
 
       const jv = joystickVecRef.current;
@@ -105,10 +110,12 @@ export function useMovement({ initialPos, zones, onZoneChange, applyPosition }) 
       }
 
       if (dx !== 0 || dy !== 0) {
-        posRef.current = {
+        let next = {
           x: clamp(posRef.current.x + dx * SPEED * dt, 0.02, 0.98),
           y: clamp(posRef.current.y + dy * SPEED * dt, 0.02, 0.98),
         };
+        if (resolveCollision) next = resolveCollision(next);
+        posRef.current = next;
         applyAvatarStyle();
         if (import.meta.env.DEV) window.__meltdownPos = posRef.current;
       }
