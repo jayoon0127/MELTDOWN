@@ -7,6 +7,7 @@ import Chat from "./Chat";
 import VoicePanel from "./VoicePanel";
 import { formatTime } from "../statMeta";
 import { useMovement } from "../useMovement";
+import { applyWorldPosition } from "./three/worldMap";
 
 export default function GameScreen({ room, myId, onWork, onSend, onRestart, voice }) {
   const [currentZoneId, setCurrentZoneId] = useState(null);
@@ -22,6 +23,7 @@ export default function GameScreen({ room, myId, onWork, onSend, onRestart, voic
     initialPos: initialPosRef.current,
     zones: room.zones,
     onZoneChange: setCurrentZoneId,
+    applyPosition: applyWorldPosition,
   });
 
   const currentZone = useMemo(

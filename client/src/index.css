@@ -329,67 +329,30 @@ input:focus {
   background: #050810;
 }
 
-.game-map {
+.game-map-canvas {
   position: absolute;
   inset: 0;
 }
 
-.map-zone {
-  position: absolute;
-  transform: translate(-50%, -50%);
-  border-radius: 999px;
-  background: rgba(30, 51, 80, 0.55);
-  border: 2px solid #2a4568;
-  transition: border-color 0.3s ease, background 0.3s ease;
-}
-
-.map-zone.alert {
-  border-color: var(--warn);
-  background: rgba(255, 207, 77, 0.12);
-}
-
-.map-zone.dark {
-  border-color: #402020;
-  background: rgba(10, 16, 24, 0.7);
-  color: #6a7a90;
-}
-
-.map-zone-inner {
-  position: absolute;
-  inset: 0;
+.zone3d-label {
   display: flex;
   flex-direction: column;
   align-items: center;
-  justify-content: center;
-  gap: 2px;
+  gap: 3px;
   text-align: center;
-  padding: 6%;
+  transform: translateY(-100%);
 }
 
-.map-zone-icon {
-  font-size: 1.8rem;
-  line-height: 1;
-}
-
-.map-zone-preview {
-  width: 58%;
-  height: 58%;
-  pointer-events: none;
-}
-
-.map-zone-preview canvas {
-  display: block;
-}
-
-.map-zone-name {
+.zone3d-name {
   font-size: 0.7rem;
   font-weight: 700;
+  background: rgba(10, 16, 24, 0.7);
+  padding: 2px 8px;
+  border-radius: 999px;
+  white-space: nowrap;
 }
 
-.map-zone-badge {
-  position: absolute;
-  top: 6%;
-  right: 10%;
+.zone3d-badge {
   background: var(--danger);
   color: white;
   font-size: 0.65rem;
@@ -402,23 +365,7 @@ input:focus {
   justify-content: center;
 }
 
-.map-avatar {
-  position: absolute;
-  transform: translate(-50%, -100%);
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 2px;
-  pointer-events: none;
-  z-index: 5;
-}
-
-.map-avatar-icon {
-  font-size: 1.6rem;
-  filter: drop-shadow(0 2px 3px rgba(0, 0, 0, 0.6));
-}
-
-.map-avatar-name {
+.avatar3d-name {
   font-size: 0.62rem;
   font-weight: 700;
   background: rgba(10, 16, 24, 0.7);
@@ -427,11 +374,7 @@ input:focus {
   white-space: nowrap;
 }
 
-.map-avatar.me {
-  z-index: 6;
-}
-
-.map-avatar.me .map-avatar-name {
+.avatar3d-name.me {
   background: var(--accent);
   color: #201200;
 }

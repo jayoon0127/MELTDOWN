@@ -9,9 +9,15 @@ placeholder 도형을 대체한다. 파일이 없으면 조용히 placeholder로
 | 파일명 | 사용처 | 설명 |
 | --- | --- | --- |
 | `reactor-core.glb` | 홈 화면 히어로(`ReactorHero.jsx`) | 회전하는 원자로 노심 |
-| `zone-reactor.glb` | 맵의 "원자로 노심" 구역 (`GameMap.jsx`) | 냉각 배관 |
+| `zone-reactor.glb` | 맵의 "원자로 노심" 구역 (`three/ZoneNode.jsx`) | 냉각 배관 |
 | `zone-generator.glb` | 맵의 "발전기실" 구역 | 발전기 |
 | `zone-electrical.glb` | 맵의 "전기실" 구역 | 차단기 패널 |
+
+나머지 세 구역(격리 구역/보안실/제어실)은 아직 실모델이 없어서 각각 전용으로
+손으로 만든 절차적 3D 오브젝트를 쓴다 (방사능 통, 보안문, 모니터 콘솔 —
+`three/placeholders/`) — 세 구역 다 똑같은 상자 도형을 재탕하던 것에서
+구역마다 알아볼 수 있는 모양으로 바꿨다. 실모델이 들어오면 자동으로 이걸
+대체한다.
 
 원본 파일은 텍스처가 2048px라 개당 10~14MB였다. 웹에서 여러 개를 동시에 띄우기엔
 너무 무거워서 `@gltf-transform/cli optimize --texture-compress webp --texture-size 512`로
@@ -40,6 +46,6 @@ placeholder 도형을 대체한다. 파일이 없으면 조용히 placeholder로
    작업복), 플레이어 아바타용. 색상만 다르게 여러 벌 있으면 좋음.
 
 파일을 이 폴더(`client/public/models/`)에 위 이름 그대로 넣기만 하면 되고,
-`client/src/components/GameMap.jsx`의 `ZONE_MODELS` 맵에 한 줄만 추가하면
-곧바로 붙는다. 텍스처가 큰 원본을 그대로 주면 위와 같이 최적화해서 넣을
-예정이니 원본 해상도 그대로 보내줘도 괜찮다.
+`client/src/components/three/ZoneNode.jsx`의 `ZONE_MODELS` 맵에 한 줄만
+추가하면 곧바로 붙는다. 텍스처가 큰 원본을 그대로 주면 위와 같이 최적화해서
+넣을 예정이니 원본 해상도 그대로 보내줘도 괜찮다.

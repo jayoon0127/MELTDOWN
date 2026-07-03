@@ -20,9 +20,12 @@ function clamp(v, lo, hi) {
 
 // Drives the local player's avatar: combines virtual-joystick input and
 // keyboard (WASD/arrows) into one vector, integrates position every frame
-// (written straight to the avatar DOM node to skip React re-renders), and
-// throttles the network-facing position updates + current-zone lookups.
-export function useMovement({ initialPos, zones, onZoneChange }) {
+// (written straight to the avatar ref via applyPosition to skip React
+// re-renders), and throttles the network-facing position updates +
+// current-zone lookups. applyPosition(el, {x, y}) decides how a normalized
+// 0-1 position maps onto whatever `el` actually is (a DOM node's style, a
+// Three.js Object3D's position, etc).
+export function useMovement({ initialPos, zones, onZoneChange, applyPosition }) {
   const posRef = useRef(initialPos);
   const avatarElRef = useRef(null);
   const joystickVecRef = useRef({ x: 0, y: 0 });
@@ -40,9 +43,8 @@ export function useMovement({ initialPos, zones, onZoneChange }) {
   const applyAvatarStyle = useCallback(() => {
     const el = avatarElRef.current;
     if (!el) return;
-    el.style.left = `${posRef.current.x * 100}%`;
-    el.style.top = `${posRef.current.y * 100}%`;
-  }, []);
+    applyPosition(el, posRef.current);
+  }, [applyPosition]);
 
   useEffect(() => {
     applyAvatarStyle();
@@ -108,6 +110,7 @@ export function useMovement({ initialPos, zones, onZoneChange }) {
           y: clamp(posRef.current.y + dy * SPEED * dt, 0.02, 0.98),
         };
         applyAvatarStyle();
+        if (import.meta.env.DEV) window.__meltdownPos = posRef.current;
       }
 
       if (ts - lastEmitRef.current > EMIT_INTERVAL_MS) {
@@ -124,6 +127,13 @@ export function useMovement({ initialPos, zones, onZoneChange }) {
     }
 
     rafRef.current = requestAnimationFrame(tick);
+    if (import.meta.env.DEV) {
+      window.__meltdownTeleport = (x, y) => {
+        posRef.current = { x, y };
+        applyAvatarStyle();
+        window.__meltdownPos = posRef.current;
+      };
+    }
     return () => cancelAnimationFrame(rafRef.current);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [zones]);

@@ -54,10 +54,11 @@ npm run dev         # http://localhost:5173
   커넥션을 그대로 사용). 발화 감지로 말하고 있는 사람에게 표시가 뜬다.
 - **빠른 매칭**: 대기 중인 공개 방이 있으면 합류하고, 없으면 새로 만들어서
   다른 사람을 기다린다. 방 코드로 직접 초대하는 방식도 그대로 지원한다.
-- **조작**: 고정 UI 그리드가 아니라 실제로 걸어 다니는 맵이다. 왼쪽 아래 가상
-  조이스틱(모바일 터치) 또는 방향키/WASD(데스크톱)로 이동하고, 사고가 있는
-  구역에 들어서면 오른쪽 아래에 그 구역용 액션 패널이 떠서 "작업하기"를 누를
-  수 있다. 다른 플레이어의 위치도 실시간으로 보인다.
+- **조작**: 고정 UI 그리드가 아니라 실제 1인칭 3D로 걸어 다니는 발전소다
+  (react-three-fiber). 왼쪽 아래 가상 조이스틱(모바일 터치) 또는 방향키/WASD
+  (데스크톱)로 이동하면 카메라가 눈높이에서 이동 방향을 자동으로 바라보고,
+  사고가 있는 구역에 들어서면 오른쪽 아래에 그 구역용 액션 패널이 떠서
+  "작업하기"를 누를 수 있다. 다른 플레이어도 3D 아바타로 실시간으로 보인다.
 
 ## 코드 구조
 
@@ -75,29 +76,34 @@ client/
   src/useMovement.js            조이스틱+키보드 입력을 합쳐 아바타를 이동시키는 훅
   src/components/Home.jsx      닉네임 입력, 빠른 매칭/방 생성/참가
   src/components/Lobby.jsx     대기실, 플레이어 목록, 음성 패널, 시작 버튼(방장 전용)
-  src/components/GameScreen.jsx 전체 게임 화면 조립 (타이머, 스탯, 맵, 음성, 채팅, 종료 오버레이)
-  src/components/GameMap.jsx   구역/아바타를 실제 좌표에 배치하는 맵
+  src/components/GameScreen.jsx 전체 게임 화면 조립 (타이머, 스탯, 3D 맵, 음성, 채팅, 종료 오버레이)
+  src/components/GameMap.jsx   3D 씬 전체 (Canvas, 바닥, 조명, 구역, 아바타)
   src/components/Joystick.jsx  포인터 이벤트 기반 가상 조이스틱 (터치+마우스)
   src/components/ActionPanel.jsx 현재 위치한 구역의 사고 목록 + "작업하기" 버튼
   src/components/StatGauge.jsx 원자로 스탯 게이지
   src/components/VoicePanel.jsx 음성 참여/음소거 버튼 + 발화 중 표시
   src/components/Chat.jsx      텍스트 채팅 (모바일에서는 우측 슬라이드 드로어)
-  src/components/three/        3D 모델 파이프라인 (아래 참고)
+  src/components/three/        3D 씬 구성 요소 (아래 참고)
   public/models/                glTF(.glb) 에셋을 넣는 자리 (README 포함)
 ```
 
-## 3D 모델 파이프라인
+## 3D 씬
 
-`client/src/components/three/ModelOrPlaceholder.jsx`가 `client/public/models/`에
-실제 `.glb` 파일이 있으면 그걸 로드하고, 없으면 로우폴리 placeholder 도형으로
-자동 폴백한다. 지금은 홈 화면의 회전하는 원자로 코어(`ReactorHero.jsx`)가 이
-방식으로 연결되어 있다. meshy.ai로 모델을 만들면 `public/models/reactor-core.glb`
-자리에 넣기만 하면 바로 반영된다 — 자세한 스펙과 추가로 필요한 모델 목록은
+`GameMap.jsx`는 zone 6개 + 플레이어 아바타 + 바닥/조명을 담은 react-three-fiber
+`<Canvas>` 하나로 이루어진 진짜 3D 씬이다 (구역별로 따로 캔버스를 띄우지 않고
+하나로 통합해서 가볍게 유지). `three/FirstPersonRig.jsx`가 로컬 플레이어의
+카메라를 눈높이(1.5유닛)에 붙이고 이동 방향으로 부드럽게 회전시켜 1인칭 시점을
+만든다. `three/ZoneNode.jsx`가 각 구역을 배치하는데, 실모델이 있으면
+(`three/ModelOrPlaceholder.jsx`가 `client/public/models/*.glb`를 로드) 그걸
+쓰고, 없으면 구역마다 직접 만든 절차적 placeholder(`three/placeholders/`) —
+방사능 통, 보안문, 콘솔 등 — 를 써서 전부 실제 3D 오브젝트로 보이게 했다(공용
+상자 모양 하나를 재탕하지 않음). meshy.ai로 실모델을 만들면 파일명 그대로
+`public/models/`에 넣기만 하면 자동으로 대체된다 — 스펙과 남은 모델 목록은
 `client/public/models/README.md` 참고.
 
 ## 다음 단계 (미구현)
 
-- meshy.ai 실제 3D 모델 적용 (지금은 원자로 코어만 placeholder ↔ 실모델 자동 전환
-  구조가 준비되어 있고, 구역별/캐릭터 모델은 아직 목업)
+- meshy.ai 실제 3D 모델 적용 (원자로 코어/원자로·발전기·전기실 구역은 실모델
+  연결 완료, 격리구역/보안실/제어실/캐릭터는 아직 손으로 만든 placeholder)
 - 실제 사람 대상 플레이테스트를 통한 최종 밸런스 조정 (지금까지는 봇 시뮬레이션 기준)
 - 리커넥트(새로고침 시 같은 세션 복귀) 처리
