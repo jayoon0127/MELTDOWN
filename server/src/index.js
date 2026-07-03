@@ -29,6 +29,10 @@ io.on("connection", (socket) => {
     if (!currentRoomCode) return;
     const room = manager.get(currentRoomCode);
     if (room) {
+      if (room.voiceParticipants.has(socket.id)) {
+        room.voiceParticipants.delete(socket.id);
+        socket.to(room.code).emit("voice:peer-left", { peerId: socket.id });
+      }
       room.removePlayer(socket.id);
       if (room.isEmpty()) {
         manager.delete(room.code);
@@ -40,12 +44,23 @@ io.on("connection", (socket) => {
     currentRoomCode = null;
   };
 
-  socket.on("room:create", ({ name }, cb) => {
-    const room = manager.createRoom(socket.id);
+  socket.on("room:create", ({ name, isPublic } = {}, cb) => {
+    const room = manager.createRoom(socket.id, { isPublic: !!isPublic });
     room.addPlayer(socket.id, safeName(name));
     socket.join(room.code);
     currentRoomCode = room.code;
-    cb?.({ ok: true, room: room.serialize() });
+    cb?.({ ok: true, me: socket.id, room: room.serialize() });
+    broadcastRoom(room);
+  });
+
+  socket.on("room:quickmatch", ({ name } = {}, cb) => {
+    let room = manager.findQuickMatch();
+    if (!room) room = manager.createRoom(socket.id, { isPublic: true });
+    const result = room.addPlayer(socket.id, safeName(name));
+    if (result.error) return cb?.({ error: result.error });
+    socket.join(room.code);
+    currentRoomCode = room.code;
+    cb?.({ ok: true, me: socket.id, room: room.serialize() });
     broadcastRoom(room);
   });
 
@@ -57,7 +72,7 @@ io.on("connection", (socket) => {
     if (result.error) return cb?.({ error: result.error });
     socket.join(room.code);
     currentRoomCode = room.code;
-    cb?.({ ok: true, room: room.serialize() });
+    cb?.({ ok: true, me: socket.id, room: room.serialize() });
     broadcastRoom(room);
   });
 
@@ -93,6 +108,39 @@ io.on("connection", (socket) => {
     if (!room || !text || !String(text).trim()) return;
     const entry = room.addChat(socket.id, text);
     io.to(room.code).emit("chat:message", entry);
+  });
+
+  socket.on("voice:join", (_payload, cb) => {
+    const room = manager.get(currentRoomCode);
+    if (!room) return cb?.({ error: "방에 먼저 입장하세요." });
+    const others = [...room.voiceParticipants].filter((id) => id !== socket.id);
+    room.voiceParticipants.add(socket.id);
+    socket.to(room.code).emit("voice:peer-joined", { peerId: socket.id });
+    cb?.({ ok: true, peers: others });
+  });
+
+  socket.on("voice:leave", () => {
+    const room = manager.get(currentRoomCode);
+    if (!room || !room.voiceParticipants.has(socket.id)) return;
+    room.voiceParticipants.delete(socket.id);
+    socket.to(room.code).emit("voice:peer-left", { peerId: socket.id });
+  });
+
+  socket.on("voice:signal", ({ to, data } = {}) => {
+    if (!to || !data) return;
+    io.to(to).emit("voice:signal", { from: socket.id, data });
+  });
+
+  socket.on("voice:mute", ({ muted } = {}) => {
+    const room = manager.get(currentRoomCode);
+    if (!room) return;
+    socket.to(room.code).emit("voice:mute", { peerId: socket.id, muted: !!muted });
+  });
+
+  socket.on("voice:speaking", ({ speaking } = {}) => {
+    const room = manager.get(currentRoomCode);
+    if (!room) return;
+    socket.to(room.code).emit("voice:speaking", { peerId: socket.id, speaking: !!speaking });
   });
 
   socket.on("disconnect", () => {

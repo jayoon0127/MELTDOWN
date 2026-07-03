@@ -1,9 +1,10 @@
 import StatGauge from "./StatGauge";
 import ZonePanel from "./ZonePanel";
 import Chat from "./Chat";
+import VoicePanel from "./VoicePanel";
 import { formatTime } from "../statMeta";
 
-export default function GameScreen({ room, myId, onWork, onSend, onRestart }) {
+export default function GameScreen({ room, myId, onWork, onSend, onRestart, voice }) {
   const powerOut = room.stats.power <= 0;
   const obscured = room.incidents.some((i) => i.obscuresStats);
   const me = room.players.find((p) => p.id === myId);
@@ -36,7 +37,10 @@ export default function GameScreen({ room, myId, onWork, onSend, onRestart }) {
             />
           ))}
         </div>
-        <Chat chat={room.chat} onSend={onSend} />
+        <div className="side-col">
+          <VoicePanel voice={voice} players={room.players} myId={myId} />
+          <Chat chat={room.chat} onSend={onSend} />
+        </div>
       </div>
 
       {isOver && (

@@ -1,4 +1,6 @@
-export default function Lobby({ room, myId, onStart }) {
+import VoicePanel from "./VoicePanel";
+
+export default function Lobby({ room, myId, onStart, voice }) {
   const isHost = room.hostId === myId;
   const canStart = room.players.filter((p) => p.connected).length >= 1;
 
@@ -25,6 +27,8 @@ export default function Lobby({ room, myId, onStart }) {
           </li>
         ))}
       </ul>
+
+      <VoicePanel voice={voice} players={room.players} myId={myId} />
 
       {isHost ? (
         <button className="primary-btn" disabled={!canStart} onClick={onStart}>

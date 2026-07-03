@@ -22,13 +22,15 @@ function clamp(v, lo, hi) {
 // can never keep up once things stack up.
 function workRate(workerCount) {
   if (workerCount <= 0) return 0;
-  return 7 + 5 * (workerCount - 1);
+  return 4 + 4.5 * (workerCount - 1);
 }
 
 export class Room {
   constructor(code, hostId) {
     this.code = code;
     this.hostId = hostId;
+    this.isPublic = false;
+    this.voiceParticipants = new Set();
     this.players = new Map(); // id -> { id, name, workingOn: incidentId|null, connected }
     this.status = "lobby"; // lobby | playing | won | lost
     this.stats = { ...INITIAL_STATS };
@@ -114,18 +116,18 @@ export class Room {
   }
 
   difficultyFactor() {
-    // 1.0 at start, up to ~2.2 by end of round
-    return 1 + 1.2 * clamp(this.elapsed / GAME_DURATION_SEC, 0, 1);
+    // 1.0 at start, up to ~3.6 by end of round
+    return 1 + 2.6 * clamp(this.elapsed / GAME_DURATION_SEC, 0, 1);
   }
 
   spawnIntervalSec() {
     const t = clamp(this.elapsed / GAME_DURATION_SEC, 0, 1);
-    const base = 22 - 16 * t; // 22s -> 6s
-    return Math.max(4, base) * (0.75 + Math.random() * 0.5);
+    const base = 18 - 14 * t; // 18s -> 4s
+    return Math.max(3, base) * (0.75 + Math.random() * 0.5);
   }
 
   maxActiveIncidents() {
-    return clamp(1 + Math.floor(this.elapsed / 45), 1, 7);
+    return clamp(1 + Math.floor(this.elapsed / 35), 1, 8);
   }
 
   zoneIsBlocked(zoneId) {
@@ -248,6 +250,7 @@ export class Room {
     return {
       code: this.code,
       hostId: this.hostId,
+      isPublic: this.isPublic,
       status: this.status,
       stats: this.stats,
       elapsed: Math.floor(this.elapsed),

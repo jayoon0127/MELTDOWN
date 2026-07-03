@@ -1,18 +1,17 @@
 import { useEffect, useState, useCallback } from "react";
 import { socket } from "./socket";
+import { useVoiceChat } from "./useVoice";
 import Home from "./components/Home";
 import Lobby from "./components/Lobby";
 import GameScreen from "./components/GameScreen";
 
 export default function App() {
-  const [myId, setMyId] = useState(socket.id);
+  const [myId, setMyId] = useState(null);
   const [room, setRoom] = useState(null);
   const [error, setError] = useState("");
+  const voice = useVoiceChat();
 
   useEffect(() => {
-    function onConnect() {
-      setMyId(socket.id);
-    }
     function onRoomState(state) {
       setRoom(state);
     }
@@ -20,11 +19,9 @@ export default function App() {
       setRoom((prev) => (prev ? { ...prev, chat: [...prev.chat, entry] } : prev));
     }
 
-    socket.on("connect", onConnect);
     socket.on("room:state", onRoomState);
     socket.on("chat:message", onChatMessage);
     return () => {
-      socket.off("connect", onConnect);
       socket.off("room:state", onRoomState);
       socket.off("chat:message", onChatMessage);
     };
@@ -34,7 +31,10 @@ export default function App() {
     setError("");
     socket.emit("room:create", { name }, (res) => {
       if (res?.error) setError(res.error);
-      else setRoom(res.room);
+      else {
+        setMyId(res.me);
+        setRoom(res.room);
+      }
     });
   }, []);
 
@@ -46,7 +46,21 @@ export default function App() {
     }
     socket.emit("room:join", { name, code }, (res) => {
       if (res?.error) setError(res.error);
-      else setRoom(res.room);
+      else {
+        setMyId(res.me);
+        setRoom(res.room);
+      }
+    });
+  }, []);
+
+  const handleQuickMatch = useCallback((name) => {
+    setError("");
+    socket.emit("room:quickmatch", { name }, (res) => {
+      if (res?.error) setError(res.error);
+      else {
+        setMyId(res.me);
+        setRoom(res.room);
+      }
     });
   }, []);
 
@@ -67,11 +81,18 @@ export default function App() {
   }, []);
 
   if (!room) {
-    return <Home onCreate={handleCreate} onJoin={handleJoin} error={error} />;
+    return (
+      <Home
+        onCreate={handleCreate}
+        onJoin={handleJoin}
+        onQuickMatch={handleQuickMatch}
+        error={error}
+      />
+    );
   }
 
   if (room.status === "lobby") {
-    return <Lobby room={room} myId={myId} onStart={handleStart} />;
+    return <Lobby room={room} myId={myId} onStart={handleStart} voice={voice} />;
   }
 
   return (
@@ -81,6 +102,7 @@ export default function App() {
       onWork={handleWork}
       onSend={handleSend}
       onRestart={handleRestart}
+      voice={voice}
     />
   );
 }
