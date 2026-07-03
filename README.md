@@ -54,27 +54,34 @@ npm run dev         # http://localhost:5173
   커넥션을 그대로 사용). 발화 감지로 말하고 있는 사람에게 표시가 뜬다.
 - **빠른 매칭**: 대기 중인 공개 방이 있으면 합류하고, 없으면 새로 만들어서
   다른 사람을 기다린다. 방 코드로 직접 초대하는 방식도 그대로 지원한다.
+- **조작**: 고정 UI 그리드가 아니라 실제로 걸어 다니는 맵이다. 왼쪽 아래 가상
+  조이스틱(모바일 터치) 또는 방향키/WASD(데스크톱)로 이동하고, 사고가 있는
+  구역에 들어서면 오른쪽 아래에 그 구역용 액션 패널이 떠서 "작업하기"를 누를
+  수 있다. 다른 플레이어의 위치도 실시간으로 보인다.
 
 ## 코드 구조
 
 ```
 server/
-  src/index.js          Express + Socket.io 진입점, 방/음성 시그널링 이벤트 처리
+  src/index.js          Express + Socket.io 진입점, 방/음성/이동 시그널링 이벤트 처리
   src/roomManager.js     방 코드 생성/조회, 빠른 매칭용 공개 방 탐색
-  src/game/Room.js       게임 상태 머신 (틱 루프, 사고 스폰, 승패 판정)
-  src/game/constants.js  스탯/사고/타이밍 밸런스 상수
+  src/game/Room.js       게임 상태 머신 (틱 루프, 사고 스폰, 이동, 승패 판정)
+  src/game/constants.js  스탯/사고/타이밍/맵 레이아웃 밸런스 상수
 
 client/
   src/App.jsx                  화면 전환 (Home → Lobby → GameScreen) + 소켓 이벤트 연결
   src/socket.js                socket.io-client 인스턴스
   src/useVoice.js               WebRTC 음성 채팅 훅 (연결/음소거/발화 감지)
+  src/useMovement.js            조이스틱+키보드 입력을 합쳐 아바타를 이동시키는 훅
   src/components/Home.jsx      닉네임 입력, 빠른 매칭/방 생성/참가
   src/components/Lobby.jsx     대기실, 플레이어 목록, 음성 패널, 시작 버튼(방장 전용)
-  src/components/GameScreen.jsx 전체 게임 화면 조립 (타이머, 스탯, 구역, 음성, 채팅, 종료 오버레이)
-  src/components/ZonePanel.jsx 구역별 사고 카드 + "작업하기" 버튼
+  src/components/GameScreen.jsx 전체 게임 화면 조립 (타이머, 스탯, 맵, 음성, 채팅, 종료 오버레이)
+  src/components/GameMap.jsx   구역/아바타를 실제 좌표에 배치하는 맵
+  src/components/Joystick.jsx  포인터 이벤트 기반 가상 조이스틱 (터치+마우스)
+  src/components/ActionPanel.jsx 현재 위치한 구역의 사고 목록 + "작업하기" 버튼
   src/components/StatGauge.jsx 원자로 스탯 게이지
   src/components/VoicePanel.jsx 음성 참여/음소거 버튼 + 발화 중 표시
-  src/components/Chat.jsx      텍스트 채팅
+  src/components/Chat.jsx      텍스트 채팅 (모바일에서는 우측 슬라이드 드로어)
   src/components/three/        3D 모델 파이프라인 (아래 참고)
   public/models/                glTF(.glb) 에셋을 넣는 자리 (README 포함)
 ```

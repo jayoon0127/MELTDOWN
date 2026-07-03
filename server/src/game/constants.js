@@ -2,14 +2,23 @@ export const TICK_MS = 500;
 
 export const GAME_DURATION_SEC = 5 * 60; // 5 minute prototype round
 
+// x/y are normalized (0-1) positions on the game map, r is the interaction
+// radius a player's avatar must be within to work on incidents in that zone.
+export const ZONE_RADIUS = 0.16;
+
+// Rows are kept clear of the bottom ~22% of the map so the joystick and
+// action-panel HUD (overlaid bottom-left/bottom-right) never covers a zone.
 export const ZONES = {
-  reactor: { id: "reactor", name: "원자로 노심" },
-  generator: { id: "generator", name: "발전기실" },
-  electrical: { id: "electrical", name: "전기실" },
-  containment: { id: "containment", name: "격리 구역" },
-  security: { id: "security", name: "보안실" },
-  control: { id: "control", name: "제어실" },
+  reactor: { id: "reactor", name: "원자로 노심", x: 0.2, y: 0.26, r: ZONE_RADIUS },
+  generator: { id: "generator", name: "발전기실", x: 0.5, y: 0.18, r: ZONE_RADIUS },
+  electrical: { id: "electrical", name: "전기실", x: 0.8, y: 0.26, r: ZONE_RADIUS },
+  containment: { id: "containment", name: "격리 구역", x: 0.2, y: 0.56, r: ZONE_RADIUS },
+  security: { id: "security", name: "보안실", x: 0.5, y: 0.64, r: ZONE_RADIUS },
+  control: { id: "control", name: "제어실", x: 0.8, y: 0.56, r: ZONE_RADIUS },
 };
+
+export const PLAYER_SPAWN = { x: 0.5, y: 0.5 };
+export const PLAYER_MOVE_SPEED = 0.32; // normalized units per second
 
 // stats are 0-100. power is inverted (0 = blackout). integrity 100 = healthy.
 export const STAT_KEYS = ["temperature", "pressure", "radiation", "power", "integrity"];

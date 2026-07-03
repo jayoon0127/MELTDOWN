@@ -1,15 +1,33 @@
+import { useMemo, useRef, useState } from "react";
 import StatGauge from "./StatGauge";
-import ZonePanel from "./ZonePanel";
+import GameMap from "./GameMap";
+import Joystick from "./Joystick";
+import ActionPanel from "./ActionPanel";
 import Chat from "./Chat";
 import VoicePanel from "./VoicePanel";
 import { formatTime } from "../statMeta";
+import { useMovement } from "../useMovement";
 
 export default function GameScreen({ room, myId, onWork, onSend, onRestart, voice }) {
+  const [currentZoneId, setCurrentZoneId] = useState(null);
+  const [chatOpen, setChatOpen] = useState(false);
   const powerOut = room.stats.power <= 0;
   const obscured = room.incidents.some((i) => i.obscuresStats);
   const me = room.players.find((p) => p.id === myId);
   const isHost = room.hostId === myId;
   const isOver = room.status === "won" || room.status === "lost";
+
+  const initialPosRef = useRef({ x: me?.x ?? 0.5, y: me?.y ?? 0.5 });
+  const { avatarElRef, setJoystickVector } = useMovement({
+    initialPos: initialPosRef.current,
+    zones: room.zones,
+    onZoneChange: setCurrentZoneId,
+  });
+
+  const currentZone = useMemo(
+    () => room.zones.find((z) => z.id === currentZoneId) || null,
+    [room.zones, currentZoneId]
+  );
 
   return (
     <div className={`screen game-screen ${powerOut ? "blackout" : ""}`}>
@@ -23,21 +41,35 @@ export default function GameScreen({ room, myId, onWork, onSend, onRestart, voic
       </div>
 
       <div className="game-body">
-        <div className="zones-grid">
-          {room.zones.map((zone) => (
-            <ZonePanel
-              key={zone.id}
-              zone={zone}
+        <div className="map-wrap">
+          <GameMap
+            zones={room.zones}
+            incidents={room.incidents}
+            players={room.players}
+            myId={myId}
+            myName={me?.name}
+            blackout={powerOut}
+            avatarElRef={avatarElRef}
+          />
+
+          <button className="chat-toggle-btn" onClick={() => setChatOpen((v) => !v)}>
+            💬
+          </button>
+
+          <div className="hud-bottom">
+            <Joystick onChange={setJoystickVector} />
+            <ActionPanel
+              zone={currentZone}
               incidents={room.incidents}
               players={room.players}
               myId={myId}
               myWorkingOn={me?.workingOn}
-              blackout={powerOut}
               onWork={onWork}
             />
-          ))}
+          </div>
         </div>
-        <div className="side-col">
+
+        <div className={`side-col ${chatOpen ? "open" : ""}`}>
           <VoicePanel voice={voice} players={room.players} myId={myId} />
           <Chat chat={room.chat} onSend={onSend} />
         </div>

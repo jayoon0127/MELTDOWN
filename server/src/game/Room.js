@@ -8,6 +8,7 @@ import {
   INCIDENT_TYPES,
   BLACKOUT_SUSTAIN_LIMIT_SEC,
   ZONES,
+  PLAYER_SPAWN,
 } from "./constants.js";
 
 const MIN_PLAYERS = 1;
@@ -50,9 +51,25 @@ export class Room {
 
   addPlayer(id, name) {
     if (this.players.size >= MAX_PLAYERS) return { error: "방이 가득 찼습니다." };
-    this.players.set(id, { id, name, workingOn: null, connected: true });
+    const jitter = () => (Math.random() - 0.5) * 0.08;
+    this.players.set(id, {
+      id,
+      name,
+      workingOn: null,
+      connected: true,
+      x: clamp(PLAYER_SPAWN.x + jitter(), 0.04, 0.96),
+      y: clamp(PLAYER_SPAWN.y + jitter(), 0.04, 0.96),
+    });
     if (!this.hostId) this.hostId = id;
     return { ok: true };
+  }
+
+  movePlayer(id, x, y) {
+    const player = this.players.get(id);
+    if (!player) return;
+    if (typeof x !== "number" || typeof y !== "number" || Number.isNaN(x) || Number.isNaN(y)) return;
+    player.x = clamp(x, 0.02, 0.98);
+    player.y = clamp(y, 0.02, 0.98);
   }
 
   removePlayer(id) {
@@ -261,6 +278,8 @@ export class Room {
         name: p.name,
         workingOn: p.workingOn,
         connected: p.connected,
+        x: p.x,
+        y: p.y,
       })),
       incidents: [...this.incidents.values()].map((inc) => {
         const type = INCIDENT_TYPES[inc.typeId];

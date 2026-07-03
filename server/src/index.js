@@ -103,6 +103,13 @@ io.on("connection", (socket) => {
     broadcastRoom(room);
   });
 
+  socket.on("player:move", ({ x, y } = {}) => {
+    const room = manager.get(currentRoomCode);
+    if (!room || room.status !== "playing") return;
+    room.movePlayer(socket.id, x, y);
+    broadcastRoom(room);
+  });
+
   socket.on("chat:send", ({ text }) => {
     const room = manager.get(currentRoomCode);
     if (!room || !text || !String(text).trim()) return;
