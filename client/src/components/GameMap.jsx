@@ -3,7 +3,8 @@ import { Canvas } from "@react-three/fiber";
 import ZoneNode from "./three/ZoneNode";
 import PlayerAvatarMesh from "./three/PlayerAvatarMesh";
 import FirstPersonRig from "./three/FirstPersonRig";
-import { WORLD_SIZE, toWorld } from "./three/worldMap";
+import BuildingShell from "./three/BuildingShell";
+import { BUILDING_HALF, toWorld } from "./three/worldMap";
 
 export default function GameMap({ zones, incidents, players, myId, myName, blackout, avatarElRef }) {
   const others = players.filter((p) => p.connected && p.id !== myId);
@@ -22,11 +23,12 @@ export default function GameMap({ zones, incidents, players, myId, myName, black
       <ambientLight intensity={blackout ? 0.35 : 0.85} />
       <directionalLight position={[5, 10, 4]} intensity={blackout ? 0.3 : 1.1} />
 
-      <gridHelper args={[WORLD_SIZE + 6, 20, "#2a4568", "#152438"]} />
+      <gridHelper args={[BUILDING_HALF * 2, 20, "#2a4568", "#152438"]} />
       <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -0.02, 0]}>
-        <planeGeometry args={[WORLD_SIZE + 6, WORLD_SIZE + 6]} />
+        <planeGeometry args={[BUILDING_HALF * 2, BUILDING_HALF * 2]} />
         <meshStandardMaterial color={blackout ? "#080e16" : "#0c1826"} />
       </mesh>
+      <BuildingShell />
 
       {zones.map((zone) => {
         const incidentCount = incidents.filter((i) => i.zone === zone.id).length;
