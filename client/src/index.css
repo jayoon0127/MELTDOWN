@@ -371,6 +371,16 @@ input:focus {
   line-height: 1;
 }
 
+.map-zone-preview {
+  width: 58%;
+  height: 58%;
+  pointer-events: none;
+}
+
+.map-zone-preview canvas {
+  display: block;
+}
+
 .map-zone-name {
   font-size: 0.7rem;
   font-weight: 700;
