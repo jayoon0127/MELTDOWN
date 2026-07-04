@@ -131,6 +131,13 @@ io.on("connection", (socket) => {
     broadcastRoom(room);
   });
 
+  socket.on("item:eat", () => {
+    const room = manager.get(currentRoomCode);
+    if (!room || room.status !== "playing") return;
+    room.eatItem(socket.id);
+    broadcastRoom(room);
+  });
+
   socket.on("player:move", ({ x, y } = {}) => {
     const room = manager.get(currentRoomCode);
     if (!room || room.status !== "playing") return;

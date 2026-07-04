@@ -146,35 +146,88 @@ export const MINIGAME_COOLDOWN_SEC = 6;
 
 // Physical items players can carry between rooms. Each has exactly one
 // home location it respawns at after use — either homeZone (sits inside a
-// room) or homePos (a fixed hallway spot, for the break-area snacks).
-// kind "tool" is used on a matching active incident (usableOn); kind
-// "consumable" is used on yourself any time to restore hunger/thirst
-// (restores), and may leave a hazard behind (leavesHazard).
+// room) or homePos (a fixed hallway spot, for the break-room snacks).
+// Two independent, optional capabilities, so an item can offer either or
+// both at once:
+//   - usableOn: an array of incident type ids — "사용하기" on a matching
+//     active incident in your current zone (the fire extinguisher's job).
+//   - eatEffect: { hunger?, thirst? } deltas applied to the eater on the
+//     spot, no zone required — this is how all the food restores you, but
+//     nothing stops you from "eating" a tool instead. The extinguisher's
+//     eatEffect is deliberately punishing: a comedy option, not a strategy.
+// leavesHazard spawns a hazard (see HAZARD_TYPES) at the eater's feet.
 export const ITEM_TYPES = {
   FIRE_EXTINGUISHER: {
     id: "FIRE_EXTINGUISHER",
     name: "소화기",
     icon: "🧯",
-    kind: "tool",
     homeZone: "electrical",
     usableOn: ["FIRE"],
+    eatEffect: { hunger: -70, thirst: -70 },
   },
   WATER: {
     id: "WATER",
     name: "물병",
     icon: "🥤",
-    kind: "consumable",
     homePos: { x: 0.46, y: 0.44 },
-    restores: "thirst",
+    eatEffect: { thirst: 55 },
   },
   BANANA: {
     id: "BANANA",
     name: "바나나",
     icon: "🍌",
-    kind: "consumable",
     homePos: { x: 0.54, y: 0.44 },
-    restores: "hunger",
+    eatEffect: { hunger: 55 },
     leavesHazard: "BANANA_PEEL",
+  },
+  APPLE: {
+    id: "APPLE",
+    name: "사과",
+    icon: "🍎",
+    homePos: { x: 0.38, y: 0.44 },
+    eatEffect: { hunger: 35 },
+  },
+  RICE_BALL: {
+    id: "RICE_BALL",
+    name: "삼각김밥",
+    icon: "🍙",
+    homePos: { x: 0.62, y: 0.44 },
+    eatEffect: { hunger: 50 },
+  },
+  COFFEE: {
+    id: "COFFEE",
+    name: "커피",
+    icon: "☕",
+    homePos: { x: 0.30, y: 0.44 },
+    eatEffect: { thirst: 30, hunger: 5 },
+  },
+  INSTANT_NOODLES: {
+    id: "INSTANT_NOODLES",
+    name: "컵라면",
+    icon: "🍜",
+    homePos: { x: 0.70, y: 0.44 },
+    eatEffect: { hunger: 70 },
+  },
+  MILK: {
+    id: "MILK",
+    name: "우유",
+    icon: "🥛",
+    homePos: { x: 0.22, y: 0.44 },
+    eatEffect: { thirst: 45, hunger: 10 },
+  },
+  CHOCOLATE_BAR: {
+    id: "CHOCOLATE_BAR",
+    name: "초코바",
+    icon: "🍫",
+    homePos: { x: 0.78, y: 0.44 },
+    eatEffect: { hunger: 25 },
+  },
+  ENERGY_DRINK: {
+    id: "ENERGY_DRINK",
+    name: "에너지 드링크",
+    icon: "🧃",
+    homePos: { x: 0.14, y: 0.44 },
+    eatEffect: { thirst: 50 },
   },
 };
 
@@ -195,11 +248,10 @@ export const HAZARD_LIFETIME_SEC = 20;
 export const HAZARD_SLIP_RADIUS = 0.035;
 
 // Per-player survival stats (0-100, separate from the plant-wide stats
-// above). Depleted continuously; eating/drinking restores them. Letting
-// either hit 0 weakens that player rather than ending the round outright —
-// they keep contributing, just less effectively, so hunger/thirst is a
-// background resource to manage rather than a hard stop.
+// above). Depleted continuously; eating restores them per each item's own
+// eatEffect. Letting either hit 0 weakens that player rather than ending
+// the round outright — they keep contributing, just less effectively, so
+// hunger/thirst is a background resource to manage rather than a hard stop.
 export const HUNGER_THIRST_DECAY_PER_SEC = 0.4;
-export const CONSUMABLE_RESTORE_AMOUNT = 55;
 export const WEAKENED_WORK_MULTIPLIER = 0.55;
 export const WEAKENED_MOVE_MULTIPLIER = 0.75;

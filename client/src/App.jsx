@@ -92,6 +92,10 @@ export default function App() {
     socket.emit("item:use");
   }, []);
 
+  const handleEatItem = useCallback(() => {
+    socket.emit("item:eat");
+  }, []);
+
   const handleSend = useCallback((text) => {
     socket.emit("chat:send", { text });
   }, []);
@@ -120,6 +124,7 @@ export default function App() {
       onPickup={handlePickup}
       onDrop={handleDrop}
       onUseItem={handleUseItem}
+      onEatItem={handleEatItem}
       onSend={handleSend}
       onRestart={handleRestart}
       voice={voice}

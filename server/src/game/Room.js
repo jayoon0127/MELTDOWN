@@ -17,7 +17,6 @@ import {
   HAZARD_TYPES,
   HAZARD_LIFETIME_SEC,
   HUNGER_THIRST_DECAY_PER_SEC,
-  CONSUMABLE_RESTORE_AMOUNT,
   WEAKENED_WORK_MULTIPLIER,
 } from "./constants.js";
 
@@ -186,28 +185,14 @@ export class Room {
     }
   }
 
+  // Use as a tool on a matching active incident in the player's current
+  // zone (the fire extinguisher's job). No-op for items with no usableOn.
   useItem(playerId) {
     const item = this.carriedItem(playerId);
     const player = this.players.get(playerId);
     if (!item || !player) return;
     const type = ITEM_TYPES[item.typeId];
-
-    if (type.kind === "consumable") {
-      player[type.restores] = clamp(player[type.restores] + CONSUMABLE_RESTORE_AMOUNT, 0, 100);
-      if (type.leavesHazard) {
-        const hazardId = nanoid(6);
-        this.hazards.set(hazardId, {
-          id: hazardId,
-          typeId: type.leavesHazard,
-          x: player.x,
-          y: player.y,
-          createdAt: this.elapsed,
-        });
-      }
-      this.items.delete(item.id);
-      this.spawnItemInstance(type);
-      return;
-    }
+    if (!type.usableOn) return;
 
     const zone = zoneAt(player.x, player.y);
     if (!zone) return;
@@ -221,6 +206,34 @@ export class Room {
     }
     // Consumed on use; a fresh one respawns at its home spot so the tool
     // stays available for the next fire.
+    this.items.delete(item.id);
+    this.spawnItemInstance(type);
+  }
+
+  // Eat/drink whatever's carried, anywhere, any time — no zone required.
+  // Applies eatEffect's hunger/thirst deltas (which can be negative: the
+  // fire extinguisher is edible on purpose, as a joke, and it is not a
+  // good one for your stomach). No-op for items with no eatEffect.
+  eatItem(playerId) {
+    const item = this.carriedItem(playerId);
+    const player = this.players.get(playerId);
+    if (!item || !player) return;
+    const type = ITEM_TYPES[item.typeId];
+    if (!type.eatEffect) return;
+
+    for (const [stat, delta] of Object.entries(type.eatEffect)) {
+      player[stat] = clamp(player[stat] + delta, 0, 100);
+    }
+    if (type.leavesHazard) {
+      const hazardId = nanoid(6);
+      this.hazards.set(hazardId, {
+        id: hazardId,
+        typeId: type.leavesHazard,
+        x: player.x,
+        y: player.y,
+        createdAt: this.elapsed,
+      });
+    }
     this.items.delete(item.id);
     this.spawnItemInstance(type);
   }
@@ -459,9 +472,8 @@ export class Room {
           typeId: it.typeId,
           name: type.name,
           icon: type.icon,
-          kind: type.kind,
           usableOn: type.usableOn || null,
-          restores: type.restores || null,
+          eatEffect: type.eatEffect || null,
           carriedBy: it.carriedBy,
           zoneId: it.zoneId,
           x: it.x,

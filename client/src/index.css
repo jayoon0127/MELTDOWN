@@ -309,7 +309,7 @@ input:focus {
   padding: 6px 12px;
 }
 
-.slip-toast {
+.hud-toast {
   position: absolute;
   top: 16px;
   left: 50%;
@@ -320,11 +320,12 @@ input:focus {
   padding: 6px 16px;
   border-radius: 999px;
   z-index: 9;
-  animation: slip-toast-pop 1.5s ease forwards;
+  animation: hud-toast-pop 1.5s ease forwards;
   pointer-events: none;
+  white-space: nowrap;
 }
 
-@keyframes slip-toast-pop {
+@keyframes hud-toast-pop {
   0% { opacity: 0; transform: translateX(-50%) translateY(-8px); }
   15% { opacity: 1; transform: translateX(-50%) translateY(0); }
   80% { opacity: 1; }
@@ -675,7 +676,9 @@ input:focus {
   padding: 8px 10px;
   display: flex;
   align-items: center;
+  flex-wrap: wrap;
   gap: 8px;
+  max-width: min(280px, 60vw);
 }
 
 .item-icon {

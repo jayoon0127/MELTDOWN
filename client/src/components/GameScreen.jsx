@@ -14,11 +14,24 @@ import { buildWallColliders, resolveWallCollision } from "./three/collision";
 
 const ITEM_NEAR_RADIUS = 0.06;
 
-export default function GameScreen({ room, myId, onWork, onBoost, onPickup, onDrop, onUseItem, onSend, onRestart, voice }) {
+// Flavor text for the eat/drink toast. Anything not listed here falls back
+// to a generic line based on whether the net effect was good or bad — the
+// extinguisher gets its own line since eating it is the punchline.
+const EAT_FLAVOR = {
+  FIRE_EXTINGUISHER: "🤢 우웩... 소화기 분말은 먹는 게 아니었다!",
+};
+
+function eatFlavorFor(item) {
+  if (EAT_FLAVOR[item.typeId]) return EAT_FLAVOR[item.typeId];
+  const net = (item.eatEffect?.hunger || 0) + (item.eatEffect?.thirst || 0);
+  return net >= 0 ? `${item.icon} 맛있다!` : `${item.icon} 우웩...`;
+}
+
+export default function GameScreen({ room, myId, onWork, onBoost, onPickup, onDrop, onUseItem, onEatItem, onSend, onRestart, voice }) {
   const [currentZoneId, setCurrentZoneId] = useState(null);
   const [chatOpen, setChatOpen] = useState(false);
   const [missionIncidentId, setMissionIncidentId] = useState(null);
-  const [slipToastAt, setSlipToastAt] = useState(0);
+  const [toast, setToast] = useState(null); // { message, at }
   const powerOut = room.stats.power <= 0;
   const obscured = room.incidents.some((i) => i.obscuresStats);
   const me = room.players.find((p) => p.id === myId);
@@ -35,8 +48,16 @@ export default function GameScreen({ room, myId, onWork, onBoost, onPickup, onDr
   });
   const canUseHere =
     !!myItem &&
-    (myItem.kind === "consumable" ||
-      (!!currentZoneId && room.incidents.some((i) => i.zone === currentZoneId && myItem.usableOn?.includes(i.typeId))));
+    !!myItem.usableOn &&
+    !!currentZoneId &&
+    room.incidents.some((i) => i.zone === currentZoneId && myItem.usableOn.includes(i.typeId));
+
+  const showToast = useCallback((message) => setToast({ message, at: Date.now() }), []);
+
+  function handleEatItem() {
+    if (myItem) showToast(eatFlavorFor(myItem));
+    onEatItem();
+  }
 
   const missionIncident = room.incidents.find((i) => i.id === missionIncidentId) || null;
 
@@ -62,8 +83,8 @@ export default function GameScreen({ room, myId, onWork, onBoost, onPickup, onDr
   }, [room.zones]);
 
   const handleSlip = useCallback(() => {
-    setSlipToastAt(Date.now());
-  }, []);
+    showToast("🍌 미끄러짐!");
+  }, [showToast]);
 
   const { avatarElRef, setJoystickVector } = useMovement({
     initialPos: initialPosRef.current,
@@ -80,7 +101,7 @@ export default function GameScreen({ room, myId, onWork, onBoost, onPickup, onDr
     [room.zones, currentZoneId]
   );
 
-  const slipVisible = Date.now() - slipToastAt < 1500;
+  const toastVisible = toast && Date.now() - toast.at < 1500;
 
   if (import.meta.env.DEV) window.__meltdownRoom = room;
 
@@ -119,7 +140,7 @@ export default function GameScreen({ room, myId, onWork, onBoost, onPickup, onDr
             💬
           </button>
 
-          {slipVisible && <div className="slip-toast">🍌 미끄러짐!</div>}
+          {toastVisible && <div className="hud-toast">{toast.message}</div>}
 
           <div className="hud-bottom">
             <Joystick onChange={setJoystickVector} />
@@ -131,6 +152,7 @@ export default function GameScreen({ room, myId, onWork, onBoost, onPickup, onDr
                 onPickup={onPickup}
                 onDrop={onDrop}
                 onUse={onUseItem}
+                onEat={handleEatItem}
               />
               <ActionPanel
                 zone={currentZone}
