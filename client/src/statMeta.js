@@ -4,6 +4,8 @@ export const STAT_META = {
   radiation: { label: "방사능", icon: "☢️", danger: "high" },
   power: { label: "전력", icon: "🔋", danger: "low" },
   integrity: { label: "설비 내구도", icon: "🏗️", danger: "low" },
+  hunger: { label: "포만감", icon: "🍞", danger: "low" },
+  thirst: { label: "수분", icon: "💧", danger: "low" },
 };
 
 export function statLevel(key, value) {

@@ -144,16 +144,37 @@ export const INCIDENT_LIST = Object.values(INCIDENT_TYPES);
 export const MINIGAME_BOOST_EFFORT = 14;
 export const MINIGAME_COOLDOWN_SEC = 6;
 
-// Physical items players can carry between rooms and use on a matching
-// incident. homeZone is where a fresh one spawns/respawns; usableOn lists
-// the incident type ids it resolves.
+// Physical items players can carry between rooms. Each has exactly one
+// home location it respawns at after use — either homeZone (sits inside a
+// room) or homePos (a fixed hallway spot, for the break-area snacks).
+// kind "tool" is used on a matching active incident (usableOn); kind
+// "consumable" is used on yourself any time to restore hunger/thirst
+// (restores), and may leave a hazard behind (leavesHazard).
 export const ITEM_TYPES = {
   FIRE_EXTINGUISHER: {
     id: "FIRE_EXTINGUISHER",
     name: "소화기",
     icon: "🧯",
+    kind: "tool",
     homeZone: "electrical",
     usableOn: ["FIRE"],
+  },
+  WATER: {
+    id: "WATER",
+    name: "물병",
+    icon: "🥤",
+    kind: "consumable",
+    homePos: { x: 0.46, y: 0.44 },
+    restores: "thirst",
+  },
+  BANANA: {
+    id: "BANANA",
+    name: "바나나",
+    icon: "🍌",
+    kind: "consumable",
+    homePos: { x: 0.54, y: 0.44 },
+    restores: "hunger",
+    leavesHazard: "BANANA_PEEL",
   },
 };
 
@@ -162,3 +183,23 @@ export const ITEM_LIST = Object.values(ITEM_TYPES);
 // Normalized-unit radius for picking up an item that's been dropped/thrown
 // on the ground outside of any zone (in the hallway).
 export const ITEM_PICKUP_RADIUS = 0.06;
+
+export const HAZARD_TYPES = {
+  BANANA_PEEL: { id: "BANANA_PEEL", name: "바나나 껍질", icon: "🍌" },
+};
+
+// A dropped banana peel sits in the hallway/room floor for a while (someone
+// really ought to clean it up) before it despawns on its own.
+export const HAZARD_LIFETIME_SEC = 20;
+// How close a player's feet need to be to a peel to slip on it.
+export const HAZARD_SLIP_RADIUS = 0.035;
+
+// Per-player survival stats (0-100, separate from the plant-wide stats
+// above). Depleted continuously; eating/drinking restores them. Letting
+// either hit 0 weakens that player rather than ending the round outright —
+// they keep contributing, just less effectively, so hunger/thirst is a
+// background resource to manage rather than a hard stop.
+export const HUNGER_THIRST_DECAY_PER_SEC = 0.4;
+export const CONSUMABLE_RESTORE_AMOUNT = 55;
+export const WEAKENED_WORK_MULTIPLIER = 0.55;
+export const WEAKENED_MOVE_MULTIPLIER = 0.75;

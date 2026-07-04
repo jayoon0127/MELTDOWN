@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from "react";
+import { useCallback, useMemo, useRef, useState } from "react";
 import StatGauge from "./StatGauge";
 import GameMap from "./GameMap";
 import Joystick from "./Joystick";
@@ -18,6 +18,7 @@ export default function GameScreen({ room, myId, onWork, onBoost, onPickup, onDr
   const [currentZoneId, setCurrentZoneId] = useState(null);
   const [chatOpen, setChatOpen] = useState(false);
   const [missionIncidentId, setMissionIncidentId] = useState(null);
+  const [slipToastAt, setSlipToastAt] = useState(0);
   const powerOut = room.stats.power <= 0;
   const obscured = room.incidents.some((i) => i.obscuresStats);
   const me = room.players.find((p) => p.id === myId);
@@ -34,8 +35,8 @@ export default function GameScreen({ room, myId, onWork, onBoost, onPickup, onDr
   });
   const canUseHere =
     !!myItem &&
-    !!currentZoneId &&
-    room.incidents.some((i) => i.zone === currentZoneId && myItem.usableOn.includes(i.typeId));
+    (myItem.kind === "consumable" ||
+      (!!currentZoneId && room.incidents.some((i) => i.zone === currentZoneId && myItem.usableOn?.includes(i.typeId))));
 
   const missionIncident = room.incidents.find((i) => i.id === missionIncidentId) || null;
 
@@ -60,10 +61,16 @@ export default function GameScreen({ room, myId, onWork, onBoost, onPickup, onDr
     };
   }, [room.zones]);
 
+  const handleSlip = useCallback(() => {
+    setSlipToastAt(Date.now());
+  }, []);
+
   const { avatarElRef, setJoystickVector } = useMovement({
     initialPos: initialPosRef.current,
     zones: room.zones,
+    hazards: room.hazards,
     onZoneChange: setCurrentZoneId,
+    onSlip: handleSlip,
     applyPosition: applyWorldPosition,
     resolveCollision,
   });
@@ -72,6 +79,10 @@ export default function GameScreen({ room, myId, onWork, onBoost, onPickup, onDr
     () => room.zones.find((z) => z.id === currentZoneId) || null,
     [room.zones, currentZoneId]
   );
+
+  const slipVisible = Date.now() - slipToastAt < 1500;
+
+  if (import.meta.env.DEV) window.__meltdownRoom = room;
 
   return (
     <div className={`screen game-screen ${powerOut ? "blackout" : ""}`}>
@@ -82,6 +93,12 @@ export default function GameScreen({ room, myId, onWork, onBoost, onPickup, onDr
             <StatGauge key={key} statKey={key} value={value} obscured={obscured} />
           ))}
         </div>
+        {me && (
+          <div className="stats-row player-status-row">
+            <StatGauge statKey="hunger" value={me.hunger} />
+            <StatGauge statKey="thirst" value={me.thirst} />
+          </div>
+        )}
       </div>
 
       <div className="game-body">
@@ -90,6 +107,7 @@ export default function GameScreen({ room, myId, onWork, onBoost, onPickup, onDr
             zones={room.zones}
             incidents={room.incidents}
             items={items}
+            hazards={room.hazards || []}
             players={room.players}
             myId={myId}
             myName={me?.name}
@@ -100,6 +118,8 @@ export default function GameScreen({ room, myId, onWork, onBoost, onPickup, onDr
           <button className="chat-toggle-btn" onClick={() => setChatOpen((v) => !v)}>
             💬
           </button>
+
+          {slipVisible && <div className="slip-toast">🍌 미끄러짐!</div>}
 
           <div className="hud-bottom">
             <Joystick onChange={setJoystickVector} />

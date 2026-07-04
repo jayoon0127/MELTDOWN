@@ -3,6 +3,15 @@ import { socket } from "./socket";
 
 const SPEED = 0.32; // normalized units/sec, mirrors server PLAYER_MOVE_SPEED (cosmetic only, not enforced)
 const EMIT_INTERVAL_MS = 90;
+// Mirrors server HAZARD_SLIP_RADIUS (constants.js) — how close to a banana
+// peel triggers a slip. Slipping briefly hijacks steering into whatever
+// direction you were already moving, at a faster slide speed, before
+// control returns; COOLDOWN_MS then guards against instantly re-triggering
+// while you're still standing in the same peel.
+const HAZARD_SLIP_RADIUS = 0.035;
+const SLIP_DURATION_MS = 450;
+const SLIP_COOLDOWN_MS = 600;
+const SLIP_SPEED_MULTIPLIER = 1.6;
 const KEYS = {
   ArrowUp: [0, -1],
   ArrowDown: [0, 1],
@@ -27,7 +36,7 @@ function clamp(v, lo, hi) {
 // Three.js Object3D's position, etc). resolveCollision(pos) => pos is an
 // optional pass that pushes a candidate position back out of solid
 // geometry (walls); omit it for a scene with nothing to bump into.
-export function useMovement({ initialPos, zones, onZoneChange, applyPosition, resolveCollision }) {
+export function useMovement({ initialPos, zones, hazards, onZoneChange, onSlip, applyPosition, resolveCollision }) {
   const posRef = useRef(initialPos);
   const avatarElRef = useRef(null);
   const joystickVecRef = useRef({ x: 0, y: 0 });
@@ -37,6 +46,15 @@ export function useMovement({ initialPos, zones, onZoneChange, applyPosition, re
   const lastTsRef = useRef(null);
   const lastEmitRef = useRef(0);
   const lastZoneRef = useRef(null);
+  const hazardsRef = useRef(hazards || []);
+  const slipRef = useRef({ activeUntil: 0, cooldownUntil: 0, dx: 0, dy: 0 });
+
+  // Kept out of the main rAF effect's dependency array (below) so a fresh
+  // hazards array reference each room:state update doesn't restart the
+  // whole movement loop — only the ref content needs to stay current.
+  useEffect(() => {
+    hazardsRef.current = hazards || [];
+  }, [hazards]);
 
   const setJoystickVector = useCallback((x, y) => {
     joystickVecRef.current = { x, y };
@@ -100,28 +118,39 @@ export function useMovement({ initialPos, zones, onZoneChange, applyPosition, re
       const totalDt = Math.min(0.25, (ts - lastTsRef.current) / 1000);
       lastTsRef.current = ts;
 
-      const jv = joystickVecRef.current;
-      const kv = keyVecRef.current;
-      let dx = jv.x + kv.x;
-      let dy = jv.y + kv.y;
-      const mag = Math.hypot(dx, dy);
-      if (mag > 1) {
-        dx /= mag;
-        dy /= mag;
+      const slip = slipRef.current;
+      const slipping = ts < slip.activeUntil;
+
+      let dx;
+      let dy;
+      if (slipping) {
+        dx = slip.dx;
+        dy = slip.dy;
+      } else {
+        const jv = joystickVecRef.current;
+        const kv = keyVecRef.current;
+        dx = jv.x + kv.x;
+        dy = jv.y + kv.y;
+        const mag = Math.hypot(dx, dy);
+        if (mag > 1) {
+          dx /= mag;
+          dy /= mag;
+        }
       }
 
       if (dx !== 0 || dy !== 0) {
         // Sub-step in small chunks so collision resolution runs often
         // enough that a big totalDt (a slow frame) can't let the player
         // tunnel clean through a thin wall in one jump.
+        const speed = slipping ? SPEED * SLIP_SPEED_MULTIPLIER : SPEED;
         const MAX_STEP = 0.05;
         let remaining = totalDt;
         let next = posRef.current;
         while (remaining > 0) {
           const step = Math.min(MAX_STEP, remaining);
           next = {
-            x: clamp(next.x + dx * SPEED * step, 0.02, 0.98),
-            y: clamp(next.y + dy * SPEED * step, 0.02, 0.98),
+            x: clamp(next.x + dx * speed * step, 0.02, 0.98),
+            y: clamp(next.y + dy * speed * step, 0.02, 0.98),
           };
           if (resolveCollision) next = resolveCollision(next);
           remaining -= step;
@@ -129,6 +158,20 @@ export function useMovement({ initialPos, zones, onZoneChange, applyPosition, re
         posRef.current = next;
         applyAvatarStyle();
         if (import.meta.env.DEV) window.__meltdownPos = posRef.current;
+
+        if (!slipping && ts >= slip.cooldownUntil) {
+          for (const hz of hazardsRef.current) {
+            if (Math.hypot(next.x - hz.x, next.y - hz.y) <= HAZARD_SLIP_RADIUS) {
+              const mag = Math.hypot(dx, dy) || 1;
+              slip.dx = dx / mag;
+              slip.dy = dy / mag;
+              slip.activeUntil = ts + SLIP_DURATION_MS;
+              slip.cooldownUntil = slip.activeUntil + SLIP_COOLDOWN_MS;
+              onSlip?.();
+              break;
+            }
+          }
+        }
       }
 
       if (ts - lastEmitRef.current > EMIT_INTERVAL_MS) {
