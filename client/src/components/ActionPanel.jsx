@@ -1,4 +1,4 @@
-export default function ActionPanel({ zone, incidents, players, myId, myWorkingOn, onWork }) {
+export default function ActionPanel({ zone, incidents, players, myId, myWorkingOn, onWork, onOpenMission }) {
   if (!zone) return null;
   const zoneIncidents = incidents.filter((i) => i.zone === zone.id);
   if (zoneIncidents.length === 0) {
@@ -31,13 +31,20 @@ export default function ActionPanel({ zone, incidents, players, myId, myWorkingO
                   : "대기 중"}
               </span>
             </div>
-            <button
-              className={isWorking ? "work-btn active" : "work-btn"}
-              disabled={locked}
-              onClick={() => onWork(isWorking ? null : inc.id)}
-            >
-              {locked ? "잠김" : isWorking ? "그만하기" : "작업하기"}
-            </button>
+            <div className="action-card-buttons">
+              <button
+                className={isWorking ? "work-btn active" : "work-btn"}
+                disabled={locked}
+                onClick={() => onWork(isWorking ? null : inc.id)}
+              >
+                {locked ? "잠김" : isWorking ? "그만하기" : "작업하기"}
+              </button>
+              {inc.minigame && !locked && (
+                <button className="mission-btn" onClick={() => onOpenMission(inc)}>
+                  정밀 작업
+                </button>
+              )}
+            </div>
           </div>
         );
       })}

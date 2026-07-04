@@ -9,6 +9,15 @@ import {
   BLACKOUT_SUSTAIN_LIMIT_SEC,
   ZONES,
   PLAYER_SPAWN,
+  ITEM_LIST,
+  ITEM_TYPES,
+  ITEM_PICKUP_RADIUS,
+  MINIGAME_BOOST_EFFORT,
+  MINIGAME_COOLDOWN_SEC,
+  HAZARD_TYPES,
+  HAZARD_LIFETIME_SEC,
+  HUNGER_THIRST_DECAY_PER_SEC,
+  WEAKENED_WORK_MULTIPLIER,
 } from "./constants.js";
 
 const MIN_PLAYERS = 1;
@@ -16,6 +25,16 @@ const MAX_PLAYERS = 8;
 
 function clamp(v, lo, hi) {
   return Math.max(lo, Math.min(hi, v));
+}
+
+// Same radius-based containment the client uses to decide "which zone am I
+// standing in" (see useMovement.js's findZone), kept in sync here so item
+// pickup/use eligibility matches what the player actually sees highlighted.
+function zoneAt(x, y) {
+  for (const zone of Object.values(ZONES)) {
+    if (Math.hypot(x - zone.x, y - zone.y) <= zone.r) return zone;
+  }
+  return null;
 }
 
 // Work throughput (effort points/sec) scales with number of players
@@ -36,6 +55,8 @@ export class Room {
     this.status = "lobby"; // lobby | playing | won | lost
     this.stats = { ...INITIAL_STATS };
     this.incidents = new Map(); // id -> incident instance
+    this.items = new Map(); // id -> { id, typeId, carriedBy, zoneId, x, y }
+    this.hazards = new Map(); // id -> { id, typeId, x, y, createdAt }
     this.elapsed = 0;
     this.timeRemaining = GAME_DURATION_SEC;
     this.blackoutTimer = 0;
@@ -59,6 +80,8 @@ export class Room {
       connected: true,
       x: clamp(PLAYER_SPAWN.x + jitter(), 0.04, 0.96),
       y: clamp(PLAYER_SPAWN.y + jitter(), 0.04, 0.96),
+      hunger: 100,
+      thirst: 100,
     });
     if (!this.hostId) this.hostId = id;
     return { ok: true };
@@ -93,6 +116,128 @@ export class Room {
     player.workingOn = incidentId || null;
   }
 
+  // Solving an incident's detailed mission minigame (see client's
+  // NodeConnectMinigame) grants a fixed, server-decided progress bump on
+  // top of normal passive work — the client never gets to say how much.
+  boostIncident(playerId, incidentId) {
+    const player = this.players.get(playerId);
+    const inc = this.incidents.get(incidentId);
+    if (!player || !inc || player.workingOn !== incidentId) return;
+    const type = INCIDENT_TYPES[inc.typeId];
+    if (!type.minigame) return;
+    if (inc.lastBoostAt != null && this.elapsed - inc.lastBoostAt < MINIGAME_COOLDOWN_SEC) return;
+    inc.lastBoostAt = this.elapsed;
+    inc.progress += MINIGAME_BOOST_EFFORT;
+    if (inc.progress >= inc.effort) {
+      this.incidents.delete(inc.id);
+      for (const p of this.playerList) {
+        if (p.workingOn === inc.id) p.workingOn = null;
+      }
+    }
+  }
+
+  carriedItem(playerId) {
+    return [...this.items.values()].find((it) => it.carriedBy === playerId) || null;
+  }
+
+  // Every item has exactly one home location: either a room (homeZone) or a
+  // fixed hallway spot (homePos, used by the break-area snacks).
+  spawnItemInstance(type) {
+    const id = nanoid(6);
+    const item = { id, typeId: type.id, carriedBy: null, zoneId: null, x: null, y: null };
+    if (type.homeZone) {
+      item.zoneId = type.homeZone;
+    } else if (type.homePos) {
+      item.x = type.homePos.x;
+      item.y = type.homePos.y;
+    }
+    this.items.set(id, item);
+    return item;
+  }
+
+  pickupItem(playerId, itemId) {
+    const player = this.players.get(playerId);
+    const item = this.items.get(itemId);
+    if (!player || !item || item.carriedBy) return;
+    if (this.carriedItem(playerId)) return; // one item at a time
+    if (item.zoneId) {
+      if (zoneAt(player.x, player.y)?.id !== item.zoneId) return;
+    } else {
+      if (Math.hypot(player.x - item.x, player.y - item.y) > ITEM_PICKUP_RADIUS) return;
+    }
+    item.carriedBy = playerId;
+    item.zoneId = null;
+    item.x = null;
+    item.y = null;
+  }
+
+  dropItem(playerId) {
+    const item = this.carriedItem(playerId);
+    const player = this.players.get(playerId);
+    if (!item || !player) return;
+    item.carriedBy = null;
+    const zone = zoneAt(player.x, player.y);
+    if (zone) {
+      item.zoneId = zone.id;
+    } else {
+      item.x = player.x;
+      item.y = player.y;
+    }
+  }
+
+  // Use as a tool on a matching active incident in the player's current
+  // zone (the fire extinguisher's job). No-op for items with no usableOn.
+  useItem(playerId) {
+    const item = this.carriedItem(playerId);
+    const player = this.players.get(playerId);
+    if (!item || !player) return;
+    const type = ITEM_TYPES[item.typeId];
+    if (!type.usableOn) return;
+
+    const zone = zoneAt(player.x, player.y);
+    if (!zone) return;
+    const inc = [...this.incidents.values()].find(
+      (i) => i.zone === zone.id && type.usableOn.includes(i.typeId)
+    );
+    if (!inc) return;
+    this.incidents.delete(inc.id);
+    for (const p of this.playerList) {
+      if (p.workingOn === inc.id) p.workingOn = null;
+    }
+    // Consumed on use; a fresh one respawns at its home spot so the tool
+    // stays available for the next fire.
+    this.items.delete(item.id);
+    this.spawnItemInstance(type);
+  }
+
+  // Eat/drink whatever's carried, anywhere, any time — no zone required.
+  // Applies eatEffect's hunger/thirst deltas (which can be negative: the
+  // fire extinguisher is edible on purpose, as a joke, and it is not a
+  // good one for your stomach). No-op for items with no eatEffect.
+  eatItem(playerId) {
+    const item = this.carriedItem(playerId);
+    const player = this.players.get(playerId);
+    if (!item || !player) return;
+    const type = ITEM_TYPES[item.typeId];
+    if (!type.eatEffect) return;
+
+    for (const [stat, delta] of Object.entries(type.eatEffect)) {
+      player[stat] = clamp(player[stat] + delta, 0, 100);
+    }
+    if (type.leavesHazard) {
+      const hazardId = nanoid(6);
+      this.hazards.set(hazardId, {
+        id: hazardId,
+        typeId: type.leavesHazard,
+        x: player.x,
+        y: player.y,
+        createdAt: this.elapsed,
+      });
+    }
+    this.items.delete(item.id);
+    this.spawnItemInstance(type);
+  }
+
   addChat(playerId, text) {
     const player = this.players.get(playerId);
     const name = player ? player.name : "???";
@@ -107,12 +252,19 @@ export class Room {
     this.status = "playing";
     this.stats = { ...INITIAL_STATS };
     this.incidents.clear();
+    this.items.clear();
+    for (const type of ITEM_LIST) this.spawnItemInstance(type);
+    this.hazards.clear();
     this.elapsed = 0;
     this.timeRemaining = GAME_DURATION_SEC;
     this.blackoutTimer = 0;
     this.nextSpawnIn = 8;
     this.loseReason = null;
-    for (const p of this.playerList) p.workingOn = null;
+    for (const p of this.playerList) {
+      p.workingOn = null;
+      p.hunger = 100;
+      p.thirst = 100;
+    }
 
     this.tickHandle = setInterval(() => {
       this.tick();
@@ -168,6 +320,7 @@ export class Room {
       effort: type.effort,
       startedAt: this.elapsed,
       spread: false,
+      lastBoostAt: null,
     });
   }
 
@@ -176,12 +329,27 @@ export class Room {
     this.elapsed += dtSec;
     this.timeRemaining = Math.max(0, GAME_DURATION_SEC - this.elapsed);
 
-    // Count workers per incident
+    // Hunger/thirst drain continuously; a player running on empty
+    // contributes less work (see workerCounts below) until they eat/drink.
+    for (const p of this.playerList) {
+      if (!p.connected) continue;
+      p.hunger = clamp(p.hunger - HUNGER_THIRST_DECAY_PER_SEC * dtSec, 0, 100);
+      p.thirst = clamp(p.thirst - HUNGER_THIRST_DECAY_PER_SEC * dtSec, 0, 100);
+    }
+
+    // Expire stale hazards (banana peels someone never cleaned up).
+    for (const [id, hz] of [...this.hazards.entries()]) {
+      if (this.elapsed - hz.createdAt > HAZARD_LIFETIME_SEC) this.hazards.delete(id);
+    }
+
+    // Count workers per incident, weighted down for anyone weakened by
+    // hunger or thirst.
     const workerCounts = new Map();
     for (const p of this.playerList) {
       if (!p.connected || !p.workingOn) continue;
       if (!this.incidents.has(p.workingOn)) continue;
-      workerCounts.set(p.workingOn, (workerCounts.get(p.workingOn) || 0) + 1);
+      const weight = p.hunger <= 0 || p.thirst <= 0 ? WEAKENED_WORK_MULTIPLIER : 1;
+      workerCounts.set(p.workingOn, (workerCounts.get(p.workingOn) || 0) + weight);
     }
 
     const blackoutActive = [...this.incidents.values()].some((i) => i.typeId === "BLACKOUT");
@@ -280,6 +448,8 @@ export class Room {
         connected: p.connected,
         x: p.x,
         y: p.y,
+        hunger: p.hunger,
+        thirst: p.thirst,
       })),
       incidents: [...this.incidents.values()].map((inc) => {
         const type = INCIDENT_TYPES[inc.typeId];
@@ -292,7 +462,27 @@ export class Room {
           progress: Math.min(100, Math.round((inc.progress / inc.effort) * 100)),
           obscuresStats: !!type.obscuresStats,
           locksZone: !!type.locksZone,
+          minigame: type.minigame || null,
         };
+      }),
+      items: [...this.items.values()].map((it) => {
+        const type = ITEM_TYPES[it.typeId];
+        return {
+          id: it.id,
+          typeId: it.typeId,
+          name: type.name,
+          icon: type.icon,
+          usableOn: type.usableOn || null,
+          eatEffect: type.eatEffect || null,
+          carriedBy: it.carriedBy,
+          zoneId: it.zoneId,
+          x: it.x,
+          y: it.y,
+        };
+      }),
+      hazards: [...this.hazards.values()].map((hz) => {
+        const type = HAZARD_TYPES[hz.typeId];
+        return { id: hz.id, typeId: hz.typeId, name: type.name, icon: type.icon, x: hz.x, y: hz.y };
       }),
       zones: Object.values(ZONES),
       chat: this.chat,
