@@ -11,6 +11,20 @@ const ZONE_MODELS = {
   reactor: "/models/zone-reactor.glb",
   generator: "/models/zone-generator.glb",
   electrical: "/models/zone-electrical.glb",
+  control: "/models/zone-control.glb",
+  security: "/models/zone-security.glb",
+};
+
+// Each meshy.ai export is vertically centered on its own origin rather than
+// resting on the ground, and by a different amount each time — this lifts
+// every model by (roughly) its own bounding-box depth below zero so it
+// sits flush on the floor instead of burying its base.
+const MODEL_Y_OFFSET = {
+  reactor: 0.34,
+  generator: 0.4,
+  electrical: 0.6,
+  control: 0.7,
+  security: 0.84,
 };
 
 // Every zone gets a real, purpose-built 3D object — either a loaded glb
@@ -46,7 +60,11 @@ export default function ZoneNode({ zone, incidentCount, isDark }) {
       </mesh>
 
       {modelUrl && !isDark ? (
-        <ModelOrPlaceholder url={modelUrl} placeholder={<Placeholder />} />
+        <ModelOrPlaceholder
+          url={modelUrl}
+          placeholder={<Placeholder />}
+          position={[0, MODEL_Y_OFFSET[zone.id] || 0, 0]}
+        />
       ) : isDark ? (
         <ZonePlaceholder color="#333c48" />
       ) : (

@@ -93,10 +93,11 @@ export function useMovement({ initialPos, zones, onZoneChange, applyPosition, re
 
     function tick(ts) {
       if (lastTsRef.current == null) lastTsRef.current = ts;
-      // Clamped tight: at SPEED=0.32/sec, 0.05s is ~0.016 normalized units
-      // (0.16 world units) max per frame, comfortably under wall thickness
-      // so a slow frame can't tunnel the player clean through a wall.
-      const dt = Math.min(0.05, (ts - lastTsRef.current) / 1000);
+      // Cap total catch-up at 0.25s (e.g. after the tab was backgrounded)
+      // so movement doesn't leap on resume, but otherwise use the real
+      // elapsed time in full — a slow frame should feel the same as two
+      // fast ones, not silently lose distance.
+      const totalDt = Math.min(0.25, (ts - lastTsRef.current) / 1000);
       lastTsRef.current = ts;
 
       const jv = joystickVecRef.current;
@@ -110,11 +111,21 @@ export function useMovement({ initialPos, zones, onZoneChange, applyPosition, re
       }
 
       if (dx !== 0 || dy !== 0) {
-        let next = {
-          x: clamp(posRef.current.x + dx * SPEED * dt, 0.02, 0.98),
-          y: clamp(posRef.current.y + dy * SPEED * dt, 0.02, 0.98),
-        };
-        if (resolveCollision) next = resolveCollision(next);
+        // Sub-step in small chunks so collision resolution runs often
+        // enough that a big totalDt (a slow frame) can't let the player
+        // tunnel clean through a thin wall in one jump.
+        const MAX_STEP = 0.05;
+        let remaining = totalDt;
+        let next = posRef.current;
+        while (remaining > 0) {
+          const step = Math.min(MAX_STEP, remaining);
+          next = {
+            x: clamp(next.x + dx * SPEED * step, 0.02, 0.98),
+            y: clamp(next.y + dy * SPEED * step, 0.02, 0.98),
+          };
+          if (resolveCollision) next = resolveCollision(next);
+          remaining -= step;
+        }
         posRef.current = next;
         applyAvatarStyle();
         if (import.meta.env.DEV) window.__meltdownPos = posRef.current;
