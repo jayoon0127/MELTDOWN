@@ -20,9 +20,14 @@ function clamp(v, lo, hi) {
 
 // Drives the local player's avatar: combines virtual-joystick input and
 // keyboard (WASD/arrows) into one vector, integrates position every frame
-// (written straight to the avatar DOM node to skip React re-renders), and
-// throttles the network-facing position updates + current-zone lookups.
-export function useMovement({ initialPos, zones, onZoneChange }) {
+// (written straight to the avatar ref via applyPosition to skip React
+// re-renders), and throttles the network-facing position updates +
+// current-zone lookups. applyPosition(el, {x, y}) decides how a normalized
+// 0-1 position maps onto whatever `el` actually is (a DOM node's style, a
+// Three.js Object3D's position, etc). resolveCollision(pos) => pos is an
+// optional pass that pushes a candidate position back out of solid
+// geometry (walls); omit it for a scene with nothing to bump into.
+export function useMovement({ initialPos, zones, onZoneChange, applyPosition, resolveCollision }) {
   const posRef = useRef(initialPos);
   const avatarElRef = useRef(null);
   const joystickVecRef = useRef({ x: 0, y: 0 });
@@ -40,9 +45,8 @@ export function useMovement({ initialPos, zones, onZoneChange }) {
   const applyAvatarStyle = useCallback(() => {
     const el = avatarElRef.current;
     if (!el) return;
-    el.style.left = `${posRef.current.x * 100}%`;
-    el.style.top = `${posRef.current.y * 100}%`;
-  }, []);
+    applyPosition(el, posRef.current);
+  }, [applyPosition]);
 
   useEffect(() => {
     applyAvatarStyle();
@@ -89,7 +93,11 @@ export function useMovement({ initialPos, zones, onZoneChange }) {
 
     function tick(ts) {
       if (lastTsRef.current == null) lastTsRef.current = ts;
-      const dt = Math.min(0.1, (ts - lastTsRef.current) / 1000);
+      // Cap total catch-up at 0.25s (e.g. after the tab was backgrounded)
+      // so movement doesn't leap on resume, but otherwise use the real
+      // elapsed time in full — a slow frame should feel the same as two
+      // fast ones, not silently lose distance.
+      const totalDt = Math.min(0.25, (ts - lastTsRef.current) / 1000);
       lastTsRef.current = ts;
 
       const jv = joystickVecRef.current;
@@ -103,11 +111,24 @@ export function useMovement({ initialPos, zones, onZoneChange }) {
       }
 
       if (dx !== 0 || dy !== 0) {
-        posRef.current = {
-          x: clamp(posRef.current.x + dx * SPEED * dt, 0.02, 0.98),
-          y: clamp(posRef.current.y + dy * SPEED * dt, 0.02, 0.98),
-        };
+        // Sub-step in small chunks so collision resolution runs often
+        // enough that a big totalDt (a slow frame) can't let the player
+        // tunnel clean through a thin wall in one jump.
+        const MAX_STEP = 0.05;
+        let remaining = totalDt;
+        let next = posRef.current;
+        while (remaining > 0) {
+          const step = Math.min(MAX_STEP, remaining);
+          next = {
+            x: clamp(next.x + dx * SPEED * step, 0.02, 0.98),
+            y: clamp(next.y + dy * SPEED * step, 0.02, 0.98),
+          };
+          if (resolveCollision) next = resolveCollision(next);
+          remaining -= step;
+        }
+        posRef.current = next;
         applyAvatarStyle();
+        if (import.meta.env.DEV) window.__meltdownPos = posRef.current;
       }
 
       if (ts - lastEmitRef.current > EMIT_INTERVAL_MS) {
@@ -124,6 +145,13 @@ export function useMovement({ initialPos, zones, onZoneChange }) {
     }
 
     rafRef.current = requestAnimationFrame(tick);
+    if (import.meta.env.DEV) {
+      window.__meltdownTeleport = (x, y) => {
+        posRef.current = { x, y };
+        applyAvatarStyle();
+        window.__meltdownPos = posRef.current;
+      };
+    }
     return () => cancelAnimationFrame(rafRef.current);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [zones]);
