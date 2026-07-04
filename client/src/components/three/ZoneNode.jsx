@@ -36,7 +36,7 @@ const ZONE_PLACEHOLDERS = {
   control: ControlPlaceholder,
 };
 
-export default function ZoneNode({ zone, incidentCount, isDark }) {
+export default function ZoneNode({ zone, incidentCount, isDark, items = [] }) {
   const [wx, , wz] = toWorld(zone.x, zone.y);
   const modelUrl = ZONE_MODELS[zone.id];
   const Placeholder = ZONE_PLACEHOLDERS[zone.id] || ZonePlaceholder;
@@ -89,6 +89,18 @@ export default function ZoneNode({ zone, incidentCount, isDark }) {
           {incidentCount > 0 && <span className="zone3d-badge">{incidentCount}</span>}
         </div>
       </Html>
+
+      {!isDark &&
+        items.map((it, i) => (
+          <Html
+            key={it.id}
+            position={[-ROOM_HALF_WIDTH * 0.5 + i * 0.4, 0.6, ROOM_HALF_DEPTH * 0.6]}
+            center
+            style={{ pointerEvents: "none" }}
+          >
+            <div className="item3d-icon">{it.icon}</div>
+          </Html>
+        ))}
     </group>
   );
 }

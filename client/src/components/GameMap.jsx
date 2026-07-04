@@ -6,7 +6,7 @@ import FirstPersonRig from "./three/FirstPersonRig";
 import BuildingShell from "./three/BuildingShell";
 import { BUILDING_HALF, toWorld } from "./three/worldMap";
 
-export default function GameMap({ zones, incidents, players, myId, myName, blackout, avatarElRef }) {
+export default function GameMap({ zones, incidents, items, players, myId, myName, blackout, avatarElRef }) {
   const others = players.filter((p) => p.connected && p.id !== myId);
   const me = players.find((p) => p.id === myId);
   const initialPos = toWorld(me?.x ?? 0.5, me?.y ?? 0.5);
@@ -32,17 +32,21 @@ export default function GameMap({ zones, incidents, players, myId, myName, black
 
       {zones.map((zone) => {
         const incidentCount = incidents.filter((i) => i.zone === zone.id).length;
+        const zoneItems = (items || []).filter((it) => it.zoneId === zone.id && !it.carriedBy);
         const isDark = blackout && zone.id !== "generator";
         return (
-          <ZoneNode key={zone.id} zone={zone} incidentCount={incidentCount} isDark={isDark} />
+          <ZoneNode key={zone.id} zone={zone} incidentCount={incidentCount} isDark={isDark} items={zoneItems} />
         );
       })}
 
-      {others.map((p) => (
-        <group key={p.id} position={toWorld(p.x, p.y)}>
-          <PlayerAvatarMesh color="#9db0c9" name={p.name} />
-        </group>
-      ))}
+      {others.map((p) => {
+        const carried = (items || []).find((it) => it.carriedBy === p.id);
+        return (
+          <group key={p.id} position={toWorld(p.x, p.y)}>
+            <PlayerAvatarMesh color="#9db0c9" name={p.name} carriedIcon={carried?.icon} />
+          </group>
+        );
+      })}
 
       <group ref={avatarElRef} position={initialPos} />
       <FirstPersonRig avatarRef={avatarElRef} />

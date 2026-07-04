@@ -16,7 +16,7 @@ function CapsulePlaceholder({ color }) {
   );
 }
 
-export default function PlayerAvatarMesh({ color, name, isMe }) {
+export default function PlayerAvatarMesh({ color, name, isMe, carriedIcon }) {
   return (
     <group>
       <ModelOrPlaceholder
@@ -25,7 +25,10 @@ export default function PlayerAvatarMesh({ color, name, isMe }) {
         position={[0, 0.95, 0]}
       />
       <Html position={[0, 1.2, 0]} center style={{ pointerEvents: "none" }}>
-        <span className={`avatar3d-name ${isMe ? "me" : ""}`}>{name}</span>
+        <span className={`avatar3d-name ${isMe ? "me" : ""}`}>
+          {carriedIcon ? `${carriedIcon} ` : ""}
+          {name}
+        </span>
       </Html>
     </group>
   );

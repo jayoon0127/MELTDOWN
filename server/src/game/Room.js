@@ -9,6 +9,11 @@ import {
   BLACKOUT_SUSTAIN_LIMIT_SEC,
   ZONES,
   PLAYER_SPAWN,
+  ITEM_LIST,
+  ITEM_TYPES,
+  ITEM_PICKUP_RADIUS,
+  MINIGAME_BOOST_EFFORT,
+  MINIGAME_COOLDOWN_SEC,
 } from "./constants.js";
 
 const MIN_PLAYERS = 1;
@@ -16,6 +21,16 @@ const MAX_PLAYERS = 8;
 
 function clamp(v, lo, hi) {
   return Math.max(lo, Math.min(hi, v));
+}
+
+// Same radius-based containment the client uses to decide "which zone am I
+// standing in" (see useMovement.js's findZone), kept in sync here so item
+// pickup/use eligibility matches what the player actually sees highlighted.
+function zoneAt(x, y) {
+  for (const zone of Object.values(ZONES)) {
+    if (Math.hypot(x - zone.x, y - zone.y) <= zone.r) return zone;
+  }
+  return null;
 }
 
 // Work throughput (effort points/sec) scales with number of players
@@ -36,6 +51,7 @@ export class Room {
     this.status = "lobby"; // lobby | playing | won | lost
     this.stats = { ...INITIAL_STATS };
     this.incidents = new Map(); // id -> incident instance
+    this.items = new Map(); // id -> { id, typeId, carriedBy, zoneId, x, y }
     this.elapsed = 0;
     this.timeRemaining = GAME_DURATION_SEC;
     this.blackoutTimer = 0;
@@ -93,6 +109,82 @@ export class Room {
     player.workingOn = incidentId || null;
   }
 
+  // Solving an incident's detailed mission minigame (see client's
+  // NodeConnectMinigame) grants a fixed, server-decided progress bump on
+  // top of normal passive work — the client never gets to say how much.
+  boostIncident(playerId, incidentId) {
+    const player = this.players.get(playerId);
+    const inc = this.incidents.get(incidentId);
+    if (!player || !inc || player.workingOn !== incidentId) return;
+    const type = INCIDENT_TYPES[inc.typeId];
+    if (!type.minigame) return;
+    if (inc.lastBoostAt != null && this.elapsed - inc.lastBoostAt < MINIGAME_COOLDOWN_SEC) return;
+    inc.lastBoostAt = this.elapsed;
+    inc.progress += MINIGAME_BOOST_EFFORT;
+    if (inc.progress >= inc.effort) {
+      this.incidents.delete(inc.id);
+      for (const p of this.playerList) {
+        if (p.workingOn === inc.id) p.workingOn = null;
+      }
+    }
+  }
+
+  carriedItem(playerId) {
+    return [...this.items.values()].find((it) => it.carriedBy === playerId) || null;
+  }
+
+  pickupItem(playerId, itemId) {
+    const player = this.players.get(playerId);
+    const item = this.items.get(itemId);
+    if (!player || !item || item.carriedBy) return;
+    if (this.carriedItem(playerId)) return; // one item at a time
+    if (item.zoneId) {
+      if (zoneAt(player.x, player.y)?.id !== item.zoneId) return;
+    } else {
+      if (Math.hypot(player.x - item.x, player.y - item.y) > ITEM_PICKUP_RADIUS) return;
+    }
+    item.carriedBy = playerId;
+    item.zoneId = null;
+    item.x = null;
+    item.y = null;
+  }
+
+  dropItem(playerId) {
+    const item = this.carriedItem(playerId);
+    const player = this.players.get(playerId);
+    if (!item || !player) return;
+    item.carriedBy = null;
+    const zone = zoneAt(player.x, player.y);
+    if (zone) {
+      item.zoneId = zone.id;
+    } else {
+      item.x = player.x;
+      item.y = player.y;
+    }
+  }
+
+  useItem(playerId) {
+    const item = this.carriedItem(playerId);
+    const player = this.players.get(playerId);
+    if (!item || !player) return;
+    const zone = zoneAt(player.x, player.y);
+    if (!zone) return;
+    const type = ITEM_TYPES[item.typeId];
+    const inc = [...this.incidents.values()].find(
+      (i) => i.zone === zone.id && type.usableOn.includes(i.typeId)
+    );
+    if (!inc) return;
+    this.incidents.delete(inc.id);
+    for (const p of this.playerList) {
+      if (p.workingOn === inc.id) p.workingOn = null;
+    }
+    // Consumed on use; a fresh one respawns at its home zone so the tool
+    // stays available for the next fire.
+    this.items.delete(item.id);
+    const id = nanoid(6);
+    this.items.set(id, { id, typeId: type.id, carriedBy: null, zoneId: type.homeZone, x: null, y: null });
+  }
+
   addChat(playerId, text) {
     const player = this.players.get(playerId);
     const name = player ? player.name : "???";
@@ -107,6 +199,11 @@ export class Room {
     this.status = "playing";
     this.stats = { ...INITIAL_STATS };
     this.incidents.clear();
+    this.items.clear();
+    for (const type of ITEM_LIST) {
+      const id = nanoid(6);
+      this.items.set(id, { id, typeId: type.id, carriedBy: null, zoneId: type.homeZone, x: null, y: null });
+    }
     this.elapsed = 0;
     this.timeRemaining = GAME_DURATION_SEC;
     this.blackoutTimer = 0;
@@ -168,6 +265,7 @@ export class Room {
       effort: type.effort,
       startedAt: this.elapsed,
       spread: false,
+      lastBoostAt: null,
     });
   }
 
@@ -292,6 +390,21 @@ export class Room {
           progress: Math.min(100, Math.round((inc.progress / inc.effort) * 100)),
           obscuresStats: !!type.obscuresStats,
           locksZone: !!type.locksZone,
+          minigame: type.minigame || null,
+        };
+      }),
+      items: [...this.items.values()].map((it) => {
+        const type = ITEM_TYPES[it.typeId];
+        return {
+          id: it.id,
+          typeId: it.typeId,
+          name: type.name,
+          icon: type.icon,
+          usableOn: type.usableOn,
+          carriedBy: it.carriedBy,
+          zoneId: it.zoneId,
+          x: it.x,
+          y: it.y,
         };
       }),
       zones: Object.values(ZONES),

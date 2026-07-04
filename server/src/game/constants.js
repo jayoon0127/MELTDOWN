@@ -121,6 +121,44 @@ export const INCIDENT_TYPES = {
     effort: 20,
     obscuresStats: true,
   },
+  WIRING_SHORT: {
+    id: "WIRING_SHORT",
+    name: "배선 합선",
+    icon: "🔌",
+    zone: "electrical",
+    effect: { integrity: -0.7 },
+    effort: 30,
+    // Tells the client to offer a detailed puzzle (see client's
+    // NodeConnectMinigame) instead of just the passive progress bar —
+    // solving it grants an instant MINIGAME_BOOST_EFFORT bonus on top of
+    // normal work.
+    minigame: "nodes",
+  },
 };
 
 export const INCIDENT_LIST = Object.values(INCIDENT_TYPES);
+
+// Instant progress bonus for solving an incident's detailed mission
+// minigame once, gated by MINIGAME_COOLDOWN_SEC so it tops up work rather
+// than replacing it.
+export const MINIGAME_BOOST_EFFORT = 14;
+export const MINIGAME_COOLDOWN_SEC = 6;
+
+// Physical items players can carry between rooms and use on a matching
+// incident. homeZone is where a fresh one spawns/respawns; usableOn lists
+// the incident type ids it resolves.
+export const ITEM_TYPES = {
+  FIRE_EXTINGUISHER: {
+    id: "FIRE_EXTINGUISHER",
+    name: "소화기",
+    icon: "🧯",
+    homeZone: "electrical",
+    usableOn: ["FIRE"],
+  },
+};
+
+export const ITEM_LIST = Object.values(ITEM_TYPES);
+
+// Normalized-unit radius for picking up an item that's been dropped/thrown
+// on the ground outside of any zone (in the hallway).
+export const ITEM_PICKUP_RADIUS = 0.06;

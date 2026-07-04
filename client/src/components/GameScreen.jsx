@@ -3,6 +3,8 @@ import StatGauge from "./StatGauge";
 import GameMap from "./GameMap";
 import Joystick from "./Joystick";
 import ActionPanel from "./ActionPanel";
+import ItemHud from "./ItemHud";
+import MissionModal from "./MissionModal";
 import Chat from "./Chat";
 import VoicePanel from "./VoicePanel";
 import { formatTime } from "../statMeta";
@@ -10,14 +12,42 @@ import { useMovement } from "../useMovement";
 import { applyWorldPosition, toWorld, toNormalized } from "./three/worldMap";
 import { buildWallColliders, resolveWallCollision } from "./three/collision";
 
-export default function GameScreen({ room, myId, onWork, onSend, onRestart, voice }) {
+const ITEM_NEAR_RADIUS = 0.06;
+
+export default function GameScreen({ room, myId, onWork, onBoost, onPickup, onDrop, onUseItem, onSend, onRestart, voice }) {
   const [currentZoneId, setCurrentZoneId] = useState(null);
   const [chatOpen, setChatOpen] = useState(false);
+  const [missionIncidentId, setMissionIncidentId] = useState(null);
   const powerOut = room.stats.power <= 0;
   const obscured = room.incidents.some((i) => i.obscuresStats);
   const me = room.players.find((p) => p.id === myId);
   const isHost = room.hostId === myId;
   const isOver = room.status === "won" || room.status === "lost";
+
+  const items = room.items || [];
+  const myItem = items.find((it) => it.carriedBy === myId) || null;
+  const nearbyItems = items.filter((it) => {
+    if (it.carriedBy) return false;
+    if (it.zoneId) return it.zoneId === currentZoneId;
+    if (it.x != null && me) return Math.hypot(me.x - it.x, me.y - it.y) <= ITEM_NEAR_RADIUS;
+    return false;
+  });
+  const canUseHere =
+    !!myItem &&
+    !!currentZoneId &&
+    room.incidents.some((i) => i.zone === currentZoneId && myItem.usableOn.includes(i.typeId));
+
+  const missionIncident = room.incidents.find((i) => i.id === missionIncidentId) || null;
+
+  function handleOpenMission(inc) {
+    if (me?.workingOn !== inc.id) onWork(inc.id);
+    setMissionIncidentId(inc.id);
+  }
+
+  function handleMissionSolved() {
+    onBoost(missionIncidentId);
+    setMissionIncidentId(null);
+  }
 
   const initialPosRef = useRef({ x: me?.x ?? 0.5, y: me?.y ?? 0.5 });
 
@@ -59,6 +89,7 @@ export default function GameScreen({ room, myId, onWork, onSend, onRestart, voic
           <GameMap
             zones={room.zones}
             incidents={room.incidents}
+            items={items}
             players={room.players}
             myId={myId}
             myName={me?.name}
@@ -72,14 +103,25 @@ export default function GameScreen({ room, myId, onWork, onSend, onRestart, voic
 
           <div className="hud-bottom">
             <Joystick onChange={setJoystickVector} />
-            <ActionPanel
-              zone={currentZone}
-              incidents={room.incidents}
-              players={room.players}
-              myId={myId}
-              myWorkingOn={me?.workingOn}
-              onWork={onWork}
-            />
+            <div className="hud-bottom-panels">
+              <ItemHud
+                myItem={myItem}
+                nearbyItems={nearbyItems}
+                canUseHere={canUseHere}
+                onPickup={onPickup}
+                onDrop={onDrop}
+                onUse={onUseItem}
+              />
+              <ActionPanel
+                zone={currentZone}
+                incidents={room.incidents}
+                players={room.players}
+                myId={myId}
+                myWorkingOn={me?.workingOn}
+                onWork={onWork}
+                onOpenMission={handleOpenMission}
+              />
+            </div>
           </div>
         </div>
 
@@ -104,6 +146,12 @@ export default function GameScreen({ room, myId, onWork, onSend, onRestart, voic
           </div>
         </div>
       )}
+
+      <MissionModal
+        incident={missionIncident}
+        onClose={() => setMissionIncidentId(null)}
+        onSolved={handleMissionSolved}
+      />
     </div>
   );
 }

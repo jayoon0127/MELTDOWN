@@ -76,6 +76,22 @@ export default function App() {
     socket.emit("incident:work", { incidentId });
   }, []);
 
+  const handleBoost = useCallback((incidentId) => {
+    socket.emit("incident:boost", { incidentId });
+  }, []);
+
+  const handlePickup = useCallback((itemId) => {
+    socket.emit("item:pickup", { itemId });
+  }, []);
+
+  const handleDrop = useCallback(() => {
+    socket.emit("item:drop");
+  }, []);
+
+  const handleUseItem = useCallback(() => {
+    socket.emit("item:use");
+  }, []);
+
   const handleSend = useCallback((text) => {
     socket.emit("chat:send", { text });
   }, []);
@@ -100,6 +116,10 @@ export default function App() {
       room={room}
       myId={myId}
       onWork={handleWork}
+      onBoost={handleBoost}
+      onPickup={handlePickup}
+      onDrop={handleDrop}
+      onUseItem={handleUseItem}
       onSend={handleSend}
       onRestart={handleRestart}
       voice={voice}

@@ -103,6 +103,34 @@ io.on("connection", (socket) => {
     broadcastRoom(room);
   });
 
+  socket.on("incident:boost", ({ incidentId } = {}) => {
+    const room = manager.get(currentRoomCode);
+    if (!room || room.status !== "playing" || !incidentId) return;
+    room.boostIncident(socket.id, incidentId);
+    broadcastRoom(room);
+  });
+
+  socket.on("item:pickup", ({ itemId } = {}) => {
+    const room = manager.get(currentRoomCode);
+    if (!room || room.status !== "playing" || !itemId) return;
+    room.pickupItem(socket.id, itemId);
+    broadcastRoom(room);
+  });
+
+  socket.on("item:drop", () => {
+    const room = manager.get(currentRoomCode);
+    if (!room || room.status !== "playing") return;
+    room.dropItem(socket.id);
+    broadcastRoom(room);
+  });
+
+  socket.on("item:use", () => {
+    const room = manager.get(currentRoomCode);
+    if (!room || room.status !== "playing") return;
+    room.useItem(socket.id);
+    broadcastRoom(room);
+  });
+
   socket.on("player:move", ({ x, y } = {}) => {
     const room = manager.get(currentRoomCode);
     if (!room || room.status !== "playing") return;
