@@ -38,7 +38,6 @@ const ZONE_PLACEHOLDERS = {
 
 export default function ZoneNode({ zone, incidentCount, isDark }) {
   const [wx, , wz] = toWorld(zone.x, zone.y);
-  const padRadius = zone.r * 10;
   const modelUrl = ZONE_MODELS[zone.id];
   const Placeholder = ZONE_PLACEHOLDERS[zone.id] || ZonePlaceholder;
 
@@ -51,11 +50,24 @@ export default function ZoneNode({ zone, incidentCount, isDark }) {
       <RoomShell halfWidth={ROOM_HALF_WIDTH} halfDepth={ROOM_HALF_DEPTH} doorSide={doorSide} />
 
       <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.01, 0]}>
-        <circleGeometry args={[padRadius, 40]} />
+        <planeGeometry args={[ROOM_HALF_WIDTH * 2, ROOM_HALF_DEPTH * 2]} />
         <meshStandardMaterial color={padColor} />
       </mesh>
-      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.02, 0]}>
-        <ringGeometry args={[padRadius - 0.06, padRadius, 48]} />
+      {/* Thin accent strip just inside the walls, replacing the old alert ring now that the floor is rectangular. */}
+      <mesh position={[0, 0.02, -ROOM_HALF_DEPTH + 0.05]}>
+        <boxGeometry args={[ROOM_HALF_WIDTH * 2 - 0.1, 0.02, 0.06]} />
+        <meshBasicMaterial color={ringColor} />
+      </mesh>
+      <mesh position={[0, 0.02, ROOM_HALF_DEPTH - 0.05]}>
+        <boxGeometry args={[ROOM_HALF_WIDTH * 2 - 0.1, 0.02, 0.06]} />
+        <meshBasicMaterial color={ringColor} />
+      </mesh>
+      <mesh position={[-ROOM_HALF_WIDTH + 0.05, 0.02, 0]}>
+        <boxGeometry args={[0.06, 0.02, ROOM_HALF_DEPTH * 2 - 0.1]} />
+        <meshBasicMaterial color={ringColor} />
+      </mesh>
+      <mesh position={[ROOM_HALF_WIDTH - 0.05, 0.02, 0]}>
+        <boxGeometry args={[0.06, 0.02, ROOM_HALF_DEPTH * 2 - 0.1]} />
         <meshBasicMaterial color={ringColor} />
       </mesh>
 

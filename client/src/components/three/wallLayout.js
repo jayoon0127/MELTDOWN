@@ -9,8 +9,11 @@ export const BUILDING_WALL_HEIGHT = 2.6;
 export const BUILDING_WALL_THICKNESS = 0.2;
 
 // Local-space wall segments for a room with a doorway gap on one side.
-// Each segment: { length, cx, cz, rotationY } — rotationY 0 means the
-// segment runs along local X, Math.PI/2 means it runs along local Z.
+// Each segment: { length, cx, cz, rotationY, isWindow } — rotationY 0 means
+// the segment runs along local X, Math.PI/2 along local Z. The two
+// segments flanking the door are flagged isWindow so the renderer can make
+// them see-through glass instead of solid wall — from the hallway you can
+// glance in and tell what's happening before walking in.
 export function getRoomWallSegments(halfWidth, halfDepth, doorSide) {
   const segX = (halfWidth * 2 - DOOR_WIDTH) / 2;
   const segZ = (halfDepth * 2 - DOOR_WIDTH) / 2;
@@ -18,18 +21,18 @@ export function getRoomWallSegments(halfWidth, halfDepth, doorSide) {
 
   function addXWall(cz, isDoor) {
     if (isDoor) {
-      segments.push({ length: segX, cx: -(DOOR_WIDTH / 2 + segX / 2), cz, rotationY: 0 });
-      segments.push({ length: segX, cx: DOOR_WIDTH / 2 + segX / 2, cz, rotationY: 0 });
+      segments.push({ length: segX, cx: -(DOOR_WIDTH / 2 + segX / 2), cz, rotationY: 0, isWindow: true });
+      segments.push({ length: segX, cx: DOOR_WIDTH / 2 + segX / 2, cz, rotationY: 0, isWindow: true });
     } else {
-      segments.push({ length: halfWidth * 2, cx: 0, cz, rotationY: 0 });
+      segments.push({ length: halfWidth * 2, cx: 0, cz, rotationY: 0, isWindow: false });
     }
   }
   function addZWall(cx, isDoor) {
     if (isDoor) {
-      segments.push({ length: segZ, cx, cz: -(DOOR_WIDTH / 2 + segZ / 2), rotationY: Math.PI / 2 });
-      segments.push({ length: segZ, cx, cz: DOOR_WIDTH / 2 + segZ / 2, rotationY: Math.PI / 2 });
+      segments.push({ length: segZ, cx, cz: -(DOOR_WIDTH / 2 + segZ / 2), rotationY: Math.PI / 2, isWindow: true });
+      segments.push({ length: segZ, cx, cz: DOOR_WIDTH / 2 + segZ / 2, rotationY: Math.PI / 2, isWindow: true });
     } else {
-      segments.push({ length: halfDepth * 2, cx, cz: 0, rotationY: Math.PI / 2 });
+      segments.push({ length: halfDepth * 2, cx, cz: 0, rotationY: Math.PI / 2, isWindow: false });
     }
   }
 
