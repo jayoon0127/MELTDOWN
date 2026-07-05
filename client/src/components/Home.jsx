@@ -1,13 +1,22 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import ReactorHero from "./three/ReactorHero";
 
 export default function Home({ onCreate, onJoin, onQuickMatch, error }) {
   const [name, setName] = useState("");
   const [code, setCode] = useState("");
   const [mode, setMode] = useState("create");
+  const [pending, setPending] = useState(false);
+
+  // Any error response (including the connect-timeout one from App.jsx)
+  // means the in-flight request settled one way or another, so it's safe
+  // to stop showing "연결 중...".
+  useEffect(() => {
+    if (error) setPending(false);
+  }, [error]);
 
   const submit = (e) => {
     e.preventDefault();
+    setPending(true);
     if (mode === "create") onCreate(name);
     else if (mode === "join") onJoin(name, code);
     else onQuickMatch(name);
@@ -75,10 +84,11 @@ export default function Home({ onCreate, onJoin, onQuickMatch, error }) {
 
         {error && <div className="error">{error}</div>}
 
-        <button type="submit" className="primary-btn">
-          {mode === "create" && "발전소 개소하기"}
-          {mode === "join" && "발전소 입장하기"}
-          {mode === "quickmatch" && "빠른 매칭 시작"}
+        <button type="submit" className="primary-btn" disabled={pending}>
+          {pending && "연결 중..."}
+          {!pending && mode === "create" && "발전소 개소하기"}
+          {!pending && mode === "join" && "발전소 입장하기"}
+          {!pending && mode === "quickmatch" && "빠른 매칭 시작"}
         </button>
       </form>
 
