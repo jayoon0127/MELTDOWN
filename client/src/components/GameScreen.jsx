@@ -2,6 +2,7 @@ import { useCallback, useMemo, useRef, useState } from "react";
 import StatGauge from "./StatGauge";
 import GameMap from "./GameMap";
 import Joystick from "./Joystick";
+import LookControl from "./LookControl";
 import ActionPanel from "./ActionPanel";
 import ItemHud from "./ItemHud";
 import MissionModal from "./MissionModal";
@@ -13,6 +14,9 @@ import { applyWorldPosition, toWorld, toNormalized } from "./three/worldMap";
 import { buildWallColliders, resolveWallCollision } from "./three/collision";
 
 const ITEM_NEAR_RADIUS = 0.06;
+// Matches the old fixed camera tilt so the initial view looks the same as
+// before LookControl made pitch player-adjustable.
+const INITIAL_PITCH = (12 * Math.PI) / 180;
 
 // Flavor text for the eat/drink toast. Anything not listed here falls back
 // to a generic line based on whether the net effect was good or bad — the
@@ -86,10 +90,16 @@ export default function GameScreen({ room, myId, onWork, onBoost, onPickup, onDr
     showToast("🍌 미끄러짐!");
   }, [showToast]);
 
+  // Shared with LookControl (mutates it on drag) and FirstPersonRig (reads
+  // it every frame) — a plain ref, not React state, since it changes every
+  // drag pixel and neither consumer needs a re-render for that.
+  const lookRef = useRef({ yaw: 0, pitch: INITIAL_PITCH });
+
   const { avatarElRef, setJoystickVector } = useMovement({
     initialPos: initialPosRef.current,
     zones: room.zones,
     hazards: room.hazards,
+    lookRef,
     onZoneChange: setCurrentZoneId,
     onSlip: handleSlip,
     applyPosition: applyWorldPosition,
@@ -103,7 +113,24 @@ export default function GameScreen({ room, myId, onWork, onBoost, onPickup, onDr
 
   const toastVisible = toast && Date.now() - toast.at < 1500;
 
-  if (import.meta.env.DEV) window.__meltdownRoom = room;
+  // Best-effort: fullscreen always works from a user gesture; landscape
+  // lock only works on some browsers (notably not iOS Safari, where the
+  // player just has to physically rotate the phone) and only inside
+  // fullscreen, so failures here are silently ignored rather than shown as
+  // errors — worst case, only fullscreen (not orientation) applies.
+  function handleFullscreenToggle() {
+    if (document.fullscreenElement) {
+      document.exitFullscreen?.();
+      return;
+    }
+    document.documentElement.requestFullscreen?.().catch(() => {});
+    screen.orientation?.lock?.("landscape").catch(() => {});
+  }
+
+  if (import.meta.env.DEV) {
+    window.__meltdownRoom = room;
+    window.__meltdownLook = lookRef.current;
+  }
 
   return (
     <div className={`screen game-screen ${powerOut ? "blackout" : ""}`}>
@@ -134,7 +161,14 @@ export default function GameScreen({ room, myId, onWork, onBoost, onPickup, onDr
             myName={me?.name}
             blackout={powerOut}
             avatarElRef={avatarElRef}
+            lookRef={lookRef}
           />
+
+          <LookControl lookRef={lookRef} />
+
+          <button className="fullscreen-toggle-btn" onClick={handleFullscreenToggle} title="전체 화면">
+            ⛶
+          </button>
 
           <button className="chat-toggle-btn" onClick={() => setChatOpen((v) => !v)}>
             💬

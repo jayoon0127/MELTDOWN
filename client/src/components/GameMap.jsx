@@ -1,13 +1,13 @@
 import { useMemo } from "react";
 import { Canvas } from "@react-three/fiber";
-import { Html } from "@react-three/drei";
 import ZoneNode from "./three/ZoneNode";
 import PlayerAvatarMesh from "./three/PlayerAvatarMesh";
 import FirstPersonRig from "./three/FirstPersonRig";
 import BuildingShell from "./three/BuildingShell";
+import ItemMesh from "./three/ItemMesh";
 import { BUILDING_HALF, toWorld } from "./three/worldMap";
 
-export default function GameMap({ zones, incidents, items, hazards, players, myId, myName, blackout, avatarElRef }) {
+export default function GameMap({ zones, incidents, items, hazards, players, myId, myName, blackout, avatarElRef, lookRef }) {
   const others = players.filter((p) => p.connected && p.id !== myId);
   const me = players.find((p) => p.id === myId);
   const initialPos = toWorld(me?.x ?? 0.5, me?.y ?? 0.5);
@@ -57,9 +57,9 @@ export default function GameMap({ zones, incidents, items, hazards, players, myI
         .map((it) => {
           const [ix, , iz] = toWorld(it.x, it.y);
           return (
-            <Html key={it.id} position={[ix, 0.6, iz]} center style={{ pointerEvents: "none" }}>
-              <div className="item3d-icon">{it.icon}</div>
-            </Html>
+            <group key={it.id} position={[ix, 0, iz]}>
+              <ItemMesh typeId={it.typeId} icon={it.icon} />
+            </group>
           );
         })}
 
@@ -71,15 +71,13 @@ export default function GameMap({ zones, incidents, items, hazards, players, myI
               <circleGeometry args={[0.16, 16]} />
               <meshStandardMaterial color="#e8d34a" />
             </mesh>
-            <Html position={[0, 0.3, 0]} center style={{ pointerEvents: "none" }}>
-              <div className="item3d-icon">{hz.icon}</div>
-            </Html>
+            <ItemMesh typeId={hz.typeId} icon={hz.icon} iconHeight={0.3} />
           </group>
         );
       })}
 
       <group ref={avatarElRef} position={initialPos} />
-      <FirstPersonRig avatarRef={avatarElRef} />
+      <FirstPersonRig avatarRef={avatarElRef} lookRef={lookRef} />
     </Canvas>
   );
 }

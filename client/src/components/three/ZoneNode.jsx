@@ -2,6 +2,7 @@ import { Html } from "@react-three/drei";
 import ModelOrPlaceholder from "./ModelOrPlaceholder";
 import ZonePlaceholder from "./ZonePlaceholder";
 import RoomShell from "./RoomShell";
+import ItemMesh from "./ItemMesh";
 import ContainmentPlaceholder from "./placeholders/ContainmentPlaceholder";
 import SecurityPlaceholder from "./placeholders/SecurityPlaceholder";
 import ControlPlaceholder from "./placeholders/ControlPlaceholder";
@@ -92,14 +93,9 @@ export default function ZoneNode({ zone, incidentCount, isDark, items = [] }) {
 
       {!isDark &&
         items.map((it, i) => (
-          <Html
-            key={it.id}
-            position={[-ROOM_HALF_WIDTH * 0.5 + i * 0.4, 0.6, ROOM_HALF_DEPTH * 0.6]}
-            center
-            style={{ pointerEvents: "none" }}
-          >
-            <div className="item3d-icon">{it.icon}</div>
-          </Html>
+          <group key={it.id} position={[-ROOM_HALF_WIDTH * 0.5 + i * 0.4, 0, ROOM_HALF_DEPTH * 0.6]}>
+            <ItemMesh typeId={it.typeId} icon={it.icon} />
+          </group>
         ))}
     </group>
   );

@@ -50,3 +50,38 @@ placeholder 도형을 대체한다. 파일이 없으면 조용히 placeholder로
 파일을 이 폴더(`client/public/models/`)에 위 이름 그대로 넣기만 하면 되고,
 `client/src/components/three/ZoneNode.jsx`의 `ZONE_MODELS` 맵에 한 줄만
 추가하면 곧바로 붙는다.
+
+## 아이템/장애물 모델 (지금은 전부 이모지 아이콘)
+
+들고 다니는 아이템(소화기, 음식들)과 바닥 장애물(바나나 껍질)은 아직 실모델이
+없어서 둥둥 떠 있는 이모지 라벨로만 표시된다 — 사용자가 "이미지라서 현실감이
+없다"고 지적한 부분. `client/src/components/three/ItemMesh.jsx`가 zone 모델과
+똑같은 방식(파일 있으면 모델, 없으면 아이콘 폴백)으로 이미 준비되어 있어서,
+아래 파일들을 이 폴더에 넣고 `ItemMesh.jsx` 상단의 `ITEM_MODELS` 맵 주석을
+풀어 파일명 채워넣기만 하면 바로 붙는다 (필요하면 `MODEL_Y_OFFSET`/`MODEL_SCALE`도
+같은 파일에서 typeId별로 조정).
+
+| 파일명 | typeId | 설명 |
+| --- | --- | --- |
+| `item-fire-extinguisher.glb` | FIRE_EXTINGUISHER | 소화기, 빨강 실린더+검정 노즐 |
+| `item-water.glb` | WATER | 물병 |
+| `item-banana.glb` | BANANA | 바나나 (한 송이 말고 낱개) |
+| `item-apple.glb` | APPLE | 사과 |
+| `item-rice-ball.glb` | RICE_BALL | 삼각김밥 (검정 김+흰 밥) |
+| `item-coffee.glb` | COFFEE | 종이컵 커피 |
+| `item-instant-noodles.glb` | INSTANT_NOODLES | 컵라면 |
+| `item-milk.glb` | MILK | 우유팩 |
+| `item-chocolate-bar.glb` | CHOCOLATE_BAR | 초코바, 포장지 그대로 |
+| `item-energy-drink.glb` | ENERGY_DRINK | 캔 형태 에너지 드링크 |
+| `hazard-banana-peel.glb` | BANANA_PEEL | 바닥에 떨어진 바나나 껍질 (거의 평평하게, 밟는 장애물) |
+
+스펙은 위 zone 모델과 대체로 같지만 다음이 다르다:
+
+- **스케일이 훨씬 작다** — 사람이 한 손에 들 수 있는 크기 (대략 0.1~0.3
+  유닛/미터). zone 모델처럼 1~2유닛으로 만들면 방을 통째로 채우는 크기가 되니
+  주의.
+- **트라이앵글 수도 훨씬 적어도 된다** (오브젝트당 500~1,500 tris 권장) —
+  화면에 여러 개가 동시에 굴러다니는 작은 소품이라 zone 모델만큼 디테일이
+  필요 없다.
+- `hazard-banana-peel.glb`만 예외적으로 거의 납작해야 한다 (바닥에 붙어있는
+  장애물이라 두께가 거의 없어야 자연스럽다).

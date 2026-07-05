@@ -36,7 +36,7 @@ function clamp(v, lo, hi) {
 // Three.js Object3D's position, etc). resolveCollision(pos) => pos is an
 // optional pass that pushes a candidate position back out of solid
 // geometry (walls); omit it for a scene with nothing to bump into.
-export function useMovement({ initialPos, zones, hazards, onZoneChange, onSlip, applyPosition, resolveCollision }) {
+export function useMovement({ initialPos, zones, hazards, lookRef, onZoneChange, onSlip, applyPosition, resolveCollision }) {
   const posRef = useRef(initialPos);
   const avatarElRef = useRef(null);
   const joystickVecRef = useRef({ x: 0, y: 0 });
@@ -129,13 +129,22 @@ export function useMovement({ initialPos, zones, hazards, onZoneChange, onSlip, 
       } else {
         const jv = joystickVecRef.current;
         const kv = keyVecRef.current;
-        dx = jv.x + kv.x;
-        dy = jv.y + kv.y;
-        const mag = Math.hypot(dx, dy);
+        let inX = jv.x + kv.x;
+        let inY = jv.y + kv.y;
+        const mag = Math.hypot(inX, inY);
         if (mag > 1) {
-          dx /= mag;
-          dy /= mag;
+          inX /= mag;
+          inY /= mag;
         }
+        // Movement is camera-relative: "forward" (inY = -1) always means
+        // wherever the camera is currently looking (see LookControl), not a
+        // fixed world direction, so rotate the raw input by the current
+        // yaw. Matches FirstPersonRig's forward vector (sin(yaw), cos(yaw)).
+        const yaw = lookRef?.current?.yaw ?? 0;
+        const sin = Math.sin(yaw);
+        const cos = Math.cos(yaw);
+        dx = -inY * sin + inX * cos;
+        dy = -inY * cos - inX * sin;
       }
 
       if (dx !== 0 || dy !== 0) {
